@@ -388,3 +388,24 @@ Boat-fill and harbour-rim-idle are the closest calls — both clear 3:1 but not 
   - Run guide: `cd C:\Dev\gameX\game && npm run dev`, then open `http://localhost:5173/` (no query string for canonical first-run flow). DevTools open if you want to confirm the ethics-perimeter sweep yourself (no fetches after asset load; only `tide-pull/save/v1` in localStorage).
 - **Slice handoff:** see `docs/specs/feel-test-protocol.md` for the canonical stranger-test runbook. The slice ships per the design spec's TL;DR.
 - **Commit:** see `git log`.
+
+### Slice Review — 2026-05-06
+
+- **Verdict:** APPROVED.
+- **Reviewer:** `reviewer` agent, against `c1cb61c` on `main`, full-slice diff `a7c8154..HEAD -- game/`, design-spec acceptance + ethics ban list + tech-plan §2 layout.
+- **Ethics ban list:** clean — exhaustive grep confirmed no fetch / XHR / WebSocket / Notification / streak / leaderboard / wishlist / share / attempts counter / analytics SDK anywhere in `src/`. Single localStorage key `tide-pull/save/v1` per spec; no real-world date or lunar phase recorded.
+- **TS strictness:** no `as any`, no `@ts-ignore`, no `@ts-expect-error`, no `eslint-disable` anywhere. The two `as BayBase`/`as NightDelta` casts in `loader.ts` are the documented day-2 pragmatic JSON boundary.
+- **Circular imports:** none. Import graph is a clean DAG.
+- **Orphan code:** none. The six tech-plan §2 files documented as intentionally not built (`audio/sfx.ts`, `render/moonrise.ts`, `scenes/sandbox.ts`, `scenes/night.ts`, `sim/particles.ts`, `sim/pull.ts`) are absent from disk; no stub files left over.
+- **Acceptance criteria coverage:** all Gherkin scenarios pass at code level except the "First launch" / "Returning launch" moonrise scenarios, which are pre-documented as a P3 deferral (no `render/moonrise.ts`; the title card + ambient fade carry the identity beat in the slice).
+- **Commit hygiene:** 13 commits across 10 working days. One-day-one-commit shape with two appropriate fix-ups (day-1 `strict: true` + day-2 review). Messages follow `day-N: description`.
+- **Polish-backlog items (non-blockers; documented for the next pass):**
+  1. ✅ ADDRESSED in `c1cb61c+1`: `audio/manager.ts` `computeBedGain` now reads `PHASE_BED_GAIN[activePhase]` instead of the constant `BED_GAIN`. Phase-aware bed gain is captured via `activePhase` closure var, set in `bootstrap` + `setPhase`. The 10% gain discrepancy on full-moon unduck is gone.
+  2. ⏳ DEFERRED to backlog: `sim/fluid.ts` `h`, `vx`, `vy` are public mutable `Float32Array` fields. The buffer-swap pattern (`tmp = this.h; this.h = this.hScratch; this.hScratch = tmp`) requires reassignability so they can't be `readonly`. Future refactor: make them private and expose `getHeights(): Float32Array` for `water.ts` to read; the swap stays internal. No external writer in the current slice, so this is a future-trap rather than a defect.
+  3. ✅ ADDRESSED in `c1cb61c+1`: `main.ts` `?night=N` query-param override now has an in-source comment marking it as DEV-ONLY and flagging the need to remove or feature-gate before any public URL.
+- **Notes:** the moonrise scenario is the only Gherkin scenario that does not pass; this is the explicit deferral the slice ships with. Reviewer confirms it is correctly documented and not a regression.
+
+### Day 10 fix-up — 2026-05-06
+- **Built:** addressed two of the three reviewer polish-backlog items (audio bed-gain phase-awareness; `?night=N` dev-only comment). The third (FluidGrid private fields) deferred to post-slice polish per its future-trap classification.
+- **Files touched:** `game/src/audio/manager.ts`, `game/src/main.ts`.
+- **Commit:** see `git log`.

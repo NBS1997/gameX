@@ -111,6 +111,10 @@ interface NightScene {
 
 type ActiveScene = { kind: 'none' } | { kind: 'picker' } | NightScene;
 
+// DEV-ONLY override (?night=N): skips the picker and loads that night directly.
+// Acceptable for localhost iteration. Remove (or feature-gate behind a build env)
+// before the slice ships to any public URL — bypassing the picker fights the
+// first-playthrough linear-ordering design.
 const nightParam = new URLSearchParams(window.location.search).get('night');
 const overrideNight: NightNumber | null =
   nightParam === '1' ? 1 : nightParam === '2' ? 2 : nightParam === '3' ? 3 : null;

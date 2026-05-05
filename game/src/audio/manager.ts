@@ -35,6 +35,7 @@ export function createAudioManager(): AudioManager {
   let bedFilter: BiquadFilterNode | null = null;
   let bedGain: GainNode | null = null;
   let bedDuckTarget = 1;
+  let activePhase: LunarPhase = 'waxing-crescent';
   let started = false;
   let startPromise: Promise<void> | null = null;
 
@@ -46,6 +47,7 @@ export function createAudioManager(): AudioManager {
   };
 
   const bootstrap = async (initialPhase: LunarPhase): Promise<void> => {
+    activePhase = initialPhase;
     const audioCtx = new AudioContext();
     if (audioCtx.state === 'suspended') {
       await audioCtx.resume();
@@ -93,6 +95,7 @@ export function createAudioManager(): AudioManager {
 
   const setPhase = (phase: LunarPhase): void => {
     if (!ctx || !bedFilter || !bedGain) return;
+    activePhase = phase;
     const now = ctx.currentTime;
     bedFilter.frequency.cancelScheduledValues(now);
     bedFilter.frequency.setValueAtTime(bedFilter.frequency.value, now);
@@ -129,7 +132,7 @@ export function createAudioManager(): AudioManager {
   };
 
   const computeBedGain = (): number => {
-    return BED_GAIN;
+    return PHASE_BED_GAIN[activePhase];
   };
 
   const pressAttack = (): void => {
