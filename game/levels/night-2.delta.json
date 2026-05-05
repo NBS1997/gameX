@@ -1,0 +1,20 @@
+{
+  "lunarPhase": "full",
+  "pullStrength": 1.0,
+  "pullRadius": 140,
+  "spawns": [
+    { "type": "lantern", "id": "lantern-1", "position": { "x": 280, "y": 220 } },
+    { "type": "lantern", "id": "lantern-2", "position": { "x": 480, "y": 380 } },
+    { "type": "lantern", "id": "lantern-3", "position": { "x": 720, "y": 180 } },
+    { "type": "lantern", "id": "lantern-4", "position": { "x": 1100, "y": 320 } },
+    { "type": "lantern", "id": "lantern-5", "position": { "x": 1380, "y": 540 } },
+    { "type": "lantern", "id": "lantern-6", "position": { "x": 1620, "y": 260 } },
+    { "type": "lantern", "id": "lantern-7", "position": { "x": 920, "y": 760 } },
+    { "type": "lantern", "id": "lantern-8", "position": { "x": 540, "y": 820 } }
+  ],
+  "goal": {
+    "kind": "gather",
+    "clusterRadius": 120,
+    "minCount": 6
+  }
+}

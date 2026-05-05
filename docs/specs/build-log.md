@@ -110,3 +110,31 @@ Commit reviewed: `5aecde4`. Reviewer ran read-only against the diff `HEAD~1..HEA
 - **Out of scope:** ESLint install (day 2); body/letterbox colour rationalisation (day 2).
 - **Watch-outs:** strict mode is now the contract for all subsequent code — `tsc` will fail on implicit-any, unchecked nulls, etc. Day 2 onward must be written under strict.
 - **Commit:** see `git log` (this entry committed alongside the fix).
+
+## Day 2 — motion bible + level loader + 3 night stubs
+
+### Day 2 — 2026-05-06
+- **Built:**
+  - `docs/specs/motion-and-colour-bible.md` — full motion timings (pull response ≤100ms, ramp 200–400ms, snap-back 400–800ms ease-out, soft-drift 1.2s, held-success 1.5–2s, moonrise 6–10s first / 1.5–2s return); five-stop water palette with WCAG-tested contrast; floating-object palette (boat, lantern, beach-fire reserve); cursor moon variants (waxing 24px/0.7×/80px, full 32px/1.0×/140px, waning 28px/0.85×/110px); two-shape goal vocabulary; title-card typography (system-ui 400, 48px, foam colour, 3s + 400ms fade); reduce-motion swap rules; pull-math formula for day-3.
+  - `game/src/level/types.ts` — typed shapes for `LevelDef`, `BayBase`, `NightDelta`, `SpawnDef`, `Goal` (discriminated union: guide / gather / send), `LunarPhase`, `NightNumber`.
+  - `game/src/level/loader.ts` — synchronous `loadLevel(n)` using static JSON imports with `with { type: 'json' }` and `resolveJsonModule: true`. No `fetch()` — Vite bundles the JSON.
+  - `game/levels/bay.base.json` — playfield bounds (1920×1080), empty ambient list (P3 deferred per design-spec §13).
+  - `game/levels/night-{1,2,3}.delta.json` — three nights with their lunar phases, pull strengths/radii, spawn lists, and goal definitions. N1: one boat + guide goal. N2: 8 lanterns + gather goal. N3: 6 lanterns + send goal (provisional verb pick per tech-plan §6 + design-spec Open Question #1).
+  - `game/src/render/entities.ts` — `renderEntities(level)` returns a `Container` with one `Graphics` per spawn. Boat: brown ellipse with rim. Lantern: warm-yellow disc with orange halo. Placeholder shapes — proper sprites land day 4+.
+  - `game/src/main.ts` — wires the loader + entity layer into the Pixi stage. Loads Night 1 by default (no picker yet; that's day 8).
+  - `game/src/config.ts` — added `LETTERBOX_COLOUR = '#0e1722'` per reviewer's day-1 note.
+  - `game/src/style.css` — replaced literal hex with CSS custom property `--letterbox-colour`; main.ts sets the var from config so config is now the single source of truth for letterbox colour.
+  - `game/tsconfig.json` — added `"resolveJsonModule": true` so static JSON imports infer types.
+  - **ESLint installed** per reviewer's day-1 recommendation: `eslint @eslint/js typescript-eslint eslint-config-prettier prettier` as devDeps; `eslint.config.js` flat config (recommended + strict + prettier override); `.prettierrc.json` (single quotes, trailing commas, 80-col); `lint` and `format` scripts in `package.json`.
+- **Files touched:** `docs/specs/motion-and-colour-bible.md` (new), `game/src/level/types.ts` (new), `game/src/level/loader.ts` (new), `game/levels/bay.base.json` (new), `game/levels/night-1.delta.json` (new), `game/levels/night-2.delta.json` (new), `game/levels/night-3.delta.json` (new), `game/src/render/entities.ts` (new), `game/eslint.config.js` (new), `game/.prettierrc.json` (new), `game/src/main.ts`, `game/src/config.ts`, `game/src/style.css`, `game/tsconfig.json`, `game/package.json`, `game/package-lock.json`.
+- **P3 cuts taken:** none.
+- **Out of scope:**
+  - Ambient creatures in `bay.base.json.ambient` left empty — gulls / distant whale are P3c per the tech-plan, deferred to day 8 if budget allows.
+  - Phase shadow rotation on cursor (P3a) — cosmetic; the cursor remains a placeholder circle until day 4 anyway.
+  - Picker UI, persistence, lunar-phase swapping at runtime — all day 8.
+- **Watch-outs:**
+  - `loadLevel` is synchronous (Vite bundles JSON statically). Calls don't need `await`. If JSON moves to network-loaded later, this signature changes.
+  - `Goal` is a discriminated union by `kind` field — when verbs/* implementations land on day 4–7, switch on `goal.kind` and the type narrows automatically.
+  - JSON imports use the new `with { type: 'json' }` syntax (ES2024 / TS 5.6+). Older `assert { type: 'json' }` is deprecated and will fail under `verbatimModuleSyntax: true`.
+  - Strict-mode TypeScript is now in force; the entity renderer's `switch` over `ReceiverType` is exhaustive and tsc will catch new receiver types if added without a case.
+- **Commit:** see `git log`.

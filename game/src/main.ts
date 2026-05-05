@@ -3,10 +3,18 @@ import {
   BAY_COLOUR,
   CURSOR_COLOUR,
   CURSOR_PLACEHOLDER_RADIUS,
+  LETTERBOX_COLOUR,
   LOGICAL_HEIGHT,
   LOGICAL_WIDTH,
 } from './config.ts';
+import { loadLevel } from './level/loader.ts';
+import { renderEntities } from './render/entities.ts';
 import './style.css';
+
+document.documentElement.style.setProperty(
+  '--letterbox-colour',
+  LETTERBOX_COLOUR,
+);
 
 const app = new Application();
 
@@ -20,6 +28,10 @@ await app.init({
 });
 
 document.body.appendChild(app.canvas);
+
+const level = loadLevel(1);
+const entityLayer = renderEntities(level);
+app.stage.addChild(entityLayer);
 
 const cursor = new Graphics()
   .circle(0, 0, CURSOR_PLACEHOLDER_RADIUS)

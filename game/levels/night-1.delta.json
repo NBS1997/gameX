@@ -1,0 +1,12 @@
+{
+  "lunarPhase": "waxing-crescent",
+  "pullStrength": 0.7,
+  "pullRadius": 80,
+  "spawns": [
+    { "type": "boat", "id": "boat-1", "position": { "x": 200, "y": 540 } }
+  ],
+  "goal": {
+    "kind": "guide",
+    "target": { "x": 1700, "y": 540, "radius": 100 }
+  }
+}

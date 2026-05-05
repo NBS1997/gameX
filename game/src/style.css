@@ -1,10 +1,14 @@
+:root {
+  --letterbox-colour: #0e1722;
+}
+
 html,
 body {
   margin: 0;
   padding: 0;
   height: 100vh;
   overflow: hidden;
-  background: #0e1722;
+  background: var(--letterbox-colour);
 }
 
 canvas {

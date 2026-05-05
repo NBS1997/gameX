@@ -1,0 +1,18 @@
+{
+  "lunarPhase": "waning-gibbous",
+  "pullStrength": 0.85,
+  "pullRadius": 110,
+  "spawns": [
+    { "type": "lantern", "id": "lantern-1", "position": { "x": 200, "y": 980 } },
+    { "type": "lantern", "id": "lantern-2", "position": { "x": 360, "y": 1000 } },
+    { "type": "lantern", "id": "lantern-3", "position": { "x": 520, "y": 980 } },
+    { "type": "lantern", "id": "lantern-4", "position": { "x": 680, "y": 1000 } },
+    { "type": "lantern", "id": "lantern-5", "position": { "x": 840, "y": 980 } },
+    { "type": "lantern", "id": "lantern-6", "position": { "x": 1000, "y": 1000 } }
+  ],
+  "goal": {
+    "kind": "send",
+    "edge": "east",
+    "minCount": 4
+  }
+}
