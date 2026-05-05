@@ -1,0 +1,16 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  overflow: hidden;
+  background: #0e1722;
+}
+
+canvas {
+  display: block;
+  cursor: none;
+  width: 100vw;
+  height: 100vh;
+  object-fit: contain;
+}
