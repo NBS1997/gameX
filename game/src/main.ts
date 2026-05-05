@@ -1,4 +1,8 @@
 import { Application, Container } from 'pixi.js';
+import {
+  onReduceMotionChange,
+  prefersReducedMotion,
+} from './a11y/reduceMotion.ts';
 import { createAudioManager } from './audio/manager.ts';
 import {
   BAY_COLOUR,
@@ -10,9 +14,11 @@ import { createPointerState } from './input/pointer.ts';
 import { loadLevel } from './level/loader.ts';
 import type { NightNumber } from './level/types.ts';
 import { makeCursorForPhase } from './render/cursor.ts';
+import { createCursorTrail } from './render/cursorTrail.ts';
 import { createEntityRenderer } from './render/entities.ts';
 import { renderGhosts } from './render/ghosts.ts';
 import { createHarbourRenderer } from './render/harbour.ts';
+import { createTitleCard } from './render/titleCard.ts';
 import { createWaterRenderer } from './render/water.ts';
 import { createNightPicker } from './scenes/nightPicker.ts';
 import { tryRecoverOnPressEdge, updateSoftDrift } from './scenes/softDrift.ts';
@@ -69,8 +75,18 @@ const ghostLayer = new Container();
 worldLayer.addChild(ghostLayer);
 
 let activeScene: ActiveScene = { kind: 'none' };
+const cursorTrail = createCursorTrail();
+uiLayer.addChild(cursorTrail.container);
 let cursor = makeCursorForPhase('waxing-crescent');
 uiLayer.addChild(cursor);
+
+const titleCard = createTitleCard();
+uiLayer.addChild(titleCard.container);
+
+cursorTrail.setEnabled(!prefersReducedMotion());
+onReduceMotionChange((reduced) => {
+  cursorTrail.setEnabled(!reduced);
+});
 
 const pointer = createPointerState(app.stage, app.screen);
 const audio = createAudioManager();
@@ -116,11 +132,17 @@ app.ticker.add((ticker) => {
   if (pressEdge && !audio.started) {
     void audio.start(currentLunarPhase());
   }
-  if (pressEdge) audio.pressAttack();
+  if (pressEdge) {
+    audio.pressAttack();
+    if (titleCard.isActive()) titleCard.skip();
+  }
   if (releaseEdge) {
     audio.releaseWhoosh(releaseHoldMs);
     releaseHoldMs = 0;
   }
+
+  titleCard.update(dt);
+  cursorTrail.push(pointer.x, pointer.y);
 
   if (activeScene.kind === 'night') {
     const scene = activeScene;
@@ -219,6 +241,10 @@ function enterNight(night: NightNumber): void {
   uiLayer.addChild(picker.container);
 
   if (audio.started) audio.setPhase(level.night.lunarPhase);
+
+  uiLayer.removeChild(titleCard.container);
+  uiLayer.addChild(titleCard.container);
+  titleCard.show(level.night.lunarPhase);
 
   activeScene = { kind: 'night', state, entities, harbour };
 }

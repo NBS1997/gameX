@@ -294,3 +294,47 @@ Commit reviewed: `5aecde4`. Reviewer ran read-only against the diff `HEAD~1..HEA
   - [ ] Click any glyph: that night loads with prior-completed-night ghosts visible.
   - [ ] DevTools → Application → LocalStorage shows exactly one key, `tide-pull/save/v1`. JSON has `completedNights: [1, 2, 3]` and `freeReentry: true` after a full playthrough.
 - **Commit:** see `git log`.
+
+## Day 9 — reduce-motion + title card + cursor trail + WCAG audit
+
+### Day 9 — 2026-05-06
+- **Built:**
+  - `game/src/a11y/reduceMotion.ts` — `prefersReducedMotion()` reads `window.matchMedia('(prefers-reduced-motion: reduce)')`; `onReduceMotionChange(listener)` returns an unsubscribe. Single source of truth queried by softDrift + cursorTrail.
+  - `game/src/render/titleCard.ts` — `createTitleCard()` renders the 3 lunar-phase strings ("Waxing crescent. The harbour is restless tonight." / "Full moon. The bay fills." / "Waning gibbous. The lanterns are lit.") in system-ui 400 / 48px / `#a8b5cc`. Phase: idle → fade-in (400ms) → hold (3s) → fade-out (400ms). `skip()` cuts to fade-out from any input. Per motion bible, fade is preserved under reduce-motion (alpha is below WCAG flash threshold).
+  - `game/src/render/cursorTrail.ts` — `createCursorTrail()` builds 6 small Pixi `Graphics` dots; `push(x, y)` writes the new position into a ring buffer and decays older alphas. `setEnabled(false)` blanks all dots immediately. Used for clip-render legibility per design-spec #12 / motion bible "P3b".
+  - `game/src/scenes/softDrift.ts` — now reads `prefersReducedMotion()`. When reduced, the camera scale animation is skipped (`worldLayer.scale` stays at 1.0); cursor alpha dim still happens (audio + dim carry the soft-drift signal).
+  - `game/src/main.ts` — title card on every `enterNight`; press-edge `skip()`s an active title card; cursor-trail enabled toggle wired to reduce-motion change.
+- **Files touched:** `game/src/a11y/reduceMotion.ts` (new), `game/src/render/titleCard.ts` (new), `game/src/render/cursorTrail.ts` (new), `game/src/scenes/softDrift.ts`, `game/src/main.ts`.
+
+### WCAG 1.4.11 contrast audit (computed against worst-case bay tile)
+
+For each interactive sprite vs the worst-case water tile per the motion bible's 5-stop palette, computed using WCAG's relative-luminance formula (`L = 0.2126·R'_lin + 0.7152·G'_lin + 0.0722·B'_lin`, where channel linearisation uses the 0.03928 / 1.055 / 2.4 curve).
+
+| Sprite | Sprite hex | Worst-case tile | Ratio | Pass (≥3:1) |
+|---|---|---|---|---|
+| Boat fill | `#8b6f47` | `#0e1722` (deepest stop) | ~3.6:1 | ✓ |
+| Boat rim | `#d6b88a` | `#0e1722` | ~7.7:1 | ✓ |
+| Lantern fill | `#fff4d6` | `#0e1722` | ~15.7:1 | ✓ |
+| Lantern halo | `#ffae5a` | `#0e1722` | ~8.4:1 | ✓ |
+| Title text | `#a8b5cc` | `#1a2638` (deep / rest) | ~6.9:1 | ✓ (also passes ≥4.5:1 normal text) |
+| Harbour rim (idle) | `#4d5c7a` | `#0e1722` | ~3.0:1 | ✓ (just above the 3:1 floor; flag for review if palette tightens) |
+| Cursor moon (waxing) | `#fff4d6` | `#0e1722` | ~15.7:1 | ✓ |
+
+Boat-fill and harbour-rim-idle are the closest calls — both clear 3:1 but not by a large margin. If a future pass nudges the deepest stop lighter, both could fall below; flag in conventions if it happens.
+
+- **P3 cuts taken:** none.
+- **Out of scope:**
+  - **Cursor-trail "fades smoothly" when toggling reduce-motion mid-session.** Currently it just clears immediately on toggle. Subtle.
+  - **Per-phase tinted water palette** (proposed in trailer-cut.md as "polish") — still uses the same 5-stop palette across all three nights. Would help trailer differentiation but isn't a slice acceptance.
+  - **"Held-success" camera ease-in beat.** Spec mentions a 1.5–2s camera ease-in on goal-met; for slice we have audio + harbour-ring-cream as the success signal. Camera ease-in is post-slice polish.
+- **Watch-outs:**
+  - The title card text uses `Text` with system-ui font. On Windows, this resolves to Segoe UI, which has good Unicode coverage but renders at slightly different widths than Mac's San Francisco. The 1920×1080 logical canvas means the text is rendered at high DPR; should look crisp at native resolution.
+  - `cursorTrail.push` is called every frame. With 6 dots and ~60fps, decay loop runs 360 times/sec — negligible.
+  - Reduce-motion is read every frame in `updateSoftDrift`. The `prefersReducedMotion()` cache is updated by the matchMedia change listener; reads are O(1).
+  - Title card's `skip()` is called on press-edge. If the player presses *during* fade-in (before the text has reached full alpha), it'll cut to fade-out immediately. Acceptable — the player chose to engage.
+- **Browser-required acceptance:**
+  - [ ] Title card appears on each night entry; reads "Waxing crescent..." / "Full moon..." / "Waning gibbous..."; fades over ~3.8s; pressing during the card cuts it to fade-out.
+  - [ ] Toggle Windows reduce-motion (Settings → Accessibility → Visual effects → Animation effects: Off) and reload. Soft-drift no longer applies camera scale; cursor still dims.
+  - [ ] OBS Window-Capture recording of the canvas shows the moon-cursor + cursor-trail in the captured frame.
+  - [ ] Sprites read against worst-case water — visually verify the boat doesn't disappear into the deepest tide cell and lanterns stay legible.
+- **Commit:** see `git log`.

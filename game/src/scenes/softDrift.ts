@@ -1,4 +1,5 @@
 import type { Container, Graphics } from 'pixi.js';
+import { prefersReducedMotion } from '../a11y/reduceMotion.ts';
 import {
   recoverFromSoftDrift,
   type GameState,
@@ -17,18 +18,27 @@ export function updateSoftDrift(
   dt: number,
 ): void {
   const drift = state.softDrift;
+  const reduced = prefersReducedMotion();
 
   if (drift.active) {
     drift.elapsedMs = Math.min(drift.elapsedMs + dt * 1000, DRIFT_DURATION_MS);
     const t = drift.elapsedMs / DRIFT_DURATION_MS;
-    drift.cameraScale = 1 - (1 - DRIFT_TARGET_SCALE) * t;
+    drift.cameraScale = reduced
+      ? 1
+      : 1 - (1 - DRIFT_TARGET_SCALE) * t;
     drift.cursorAlpha = 1 - (1 - DRIFT_TARGET_CURSOR_ALPHA) * t;
   } else {
     if (drift.cameraScale < 1) {
-      drift.cameraScale = Math.min(1, drift.cameraScale + RECOVER_SCALE_RATE * dt);
+      drift.cameraScale = Math.min(
+        1,
+        drift.cameraScale + RECOVER_SCALE_RATE * dt,
+      );
     }
     if (drift.cursorAlpha < 1) {
-      drift.cursorAlpha = Math.min(1, drift.cursorAlpha + RECOVER_ALPHA_RATE * dt);
+      drift.cursorAlpha = Math.min(
+        1,
+        drift.cursorAlpha + RECOVER_ALPHA_RATE * dt,
+      );
     }
   }
 
