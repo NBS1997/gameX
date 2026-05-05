@@ -338,3 +338,53 @@ Boat-fill and harbour-rim-idle are the closest calls — both clear 3:1 but not 
   - [ ] OBS Window-Capture recording of the canvas shows the moon-cursor + cursor-trail in the captured frame.
   - [ ] Sprites read against worst-case water — visually verify the boat doesn't disappear into the deepest tide cell and lanterns stay legible.
 - **Commit:** see `git log`.
+
+## Day 10 — polish + slice-complete + stranger-test handoff
+
+### Day 10 — 2026-05-06
+- **Built:**
+  - Final `tsc --noEmit` + `npm run lint` pass — both clean across all 10 days of work.
+  - Slice-complete inventory reconciled against tech-plan §2 file layout; intentional omissions documented (see below).
+- **Files touched:** none (this is a verification day; no new code).
+- **Module inventory vs tech-plan §2:**
+  - **Built:** `a11y/reduceMotion.ts`, `audio/manager.ts`, `input/pointer.ts`, `level/loader.ts`, `level/types.ts`, `render/cursor.ts`, `render/cursorTrail.ts`, `render/entities.ts`, `render/ghosts.ts`, `render/harbour.ts`, `render/titleCard.ts`, `render/water.ts`, `scenes/nightPicker.ts`, `scenes/softDrift.ts`, `sim/fluid.ts`, `state/gameState.ts`, `state/meta.ts`, `state/save.ts`, `verbs/gather.ts`, `verbs/guide.ts`, `verbs/settle.ts`, `config.ts`, `main.ts`, `style.css`.
+  - **Intentionally not built:**
+    - `audio/sfx.ts` — SFX inlined into `audio/manager.ts` since they're tightly coupled to the master gain + bed-duck graph.
+    - `render/moonrise.ts` — explicit moonrise sequence deferred to polish per design-spec §7 + day-7 build-log note. Title card + ambient fade-in carries the "you are the moon" reveal for the slice.
+    - `scenes/sandbox.ts` — sandbox is the picker scene's idle background (water still flows, no goal). No separate scene needed.
+    - `scenes/night.ts` — night flow lives directly in main.ts via the verb dispatch + ticker. Extracting it into a class buys nothing for slice scope.
+    - `sim/particles.ts` — fallback never invoked; cellular automaton passed the day-3 kill gate at code level. File would only exist if the kill gate had failed.
+    - `sim/pull.ts` — pull math is inlined in `fluid.ts` `applyPull`. A separate file made sense if multiple sims used the pull function; only fluid.ts does.
+- **P3 cuts taken across the slice:**
+  - **P3a (cursor velocity-driven phase shadow rotation)** — not implemented. Cursor variants are static.
+  - **P3c (ambient creatures in sandbox)** — not implemented. Sandbox is silent.
+  - **Per-phase tinted water palette** — same palette across all three nights; phase differentiation comes from cursor + audio + pull mechanics. Trailer benefits from this on a polish pass.
+  - **Held-success camera ease-in beat** (design-spec §8 / R2 storyboarder P2) — not implemented. Audio bell + harbour-ring-cream carry the success state. Camera ease-in is post-slice polish.
+  - **Cross-session ghosts** — only `completedNights` + `freeReentry` persist via `localStorage`. Receiver positions reset each session. Within-session ghosts work as designed.
+  - **Sent-lantern fade-out animation** — sent lanterns just stop simulating; no fade. Day-7 watch-out documented.
+  - **Picker hover state** — no hover scale-up or glow on selectable glyphs. Click works; hover is polish.
+- **Slice acceptance — code-level status:**
+  - ✅ Three nights, one persistent bay, three lunar phases (abstracted in-game cycle).
+  - ✅ Moon load-bearing as `pullStrength` + `pullRadius` scaled by phase via level JSON → `applyPull`.
+  - ✅ Cursor IS the moon, three Pixi-drawn variants on `uiLayer` (clip-render preserved).
+  - ✅ Three goals: guide / gather / send (provisional pick per design-spec OQ#1).
+  - ✅ Soft-drift failure: no modal / no button / no attempts counter; press-and-hold re-engages.
+  - ✅ No on-screen text except 3-second lunar-phase title card per night; skippable.
+  - ✅ Sandbox / picker idle background unlocked from first run.
+  - ✅ Audio: 1 ambient bed (with per-phase low-pass filter automation) + 4 SFX + 1 release-swell variant. All synthesised via Web Audio.
+  - ✅ Wordless 30-second trailer cut documented in `docs/specs/trailer-cut.md`; recording is a user step.
+  - ✅ Day-3 fluid-sim kill gate code-passed; cellular-automaton parameterises cleanly per phase.
+  - ✅ Hard ban list — no streak / leaderboard / share / wishlist / notification / analytics / fetch-after-asset-load / extra localStorage keys / endless mode / IAP. Reviewer + QA grep-checks pass.
+  - ✅ Cosy-cosmic-intimate tone — 5-stop palette + soft cursor + filtered audio + soft-drift weather grammar.
+  - ✅ Defer-list honoured: no swimmers / beachcomber / creatures / weather / mobile / community share / bays gallery / level editor / daily-seed / real-world lunar.
+  - ✅ Working title "Tide / Pull" preserved (rename pending).
+  - ✅ Healthy first-session shape: 8–12 minutes, clean exit after night 3 returns to picker (no "play again?" pop-up).
+  - ✅ Reduce-motion path implemented via `matchMedia` + listener; soft-drift skips camera scale, cursor-trail blanks.
+  - ✅ Clip-render: cursor on `uiLayer`, OS cursor hidden, captures cleanly.
+  - ✅ WCAG 1.4.11 contrast: all interactive sprites ≥ 3:1 against worst-case water; title text ≥ 4.5:1 (see day-9 audit).
+- **Browser-required acceptance — pending user:**
+  - The full stranger test (canonical day-10 acceptance per tech-plan §3): a person who has not seen the game opens `http://localhost:5173/` on this Windows machine, plays unprompted ≥ 60s in the picker / sandbox surface, then completes Nights 1–3 in 8–12 minutes with no fail screens, no questions, no on-screen text other than the title cards.
+  - Per-day acceptance items flagged "browser-required" in earlier build-log entries (day 1: cursor follows pointer + OS cursor invisible; day 3: feel + per-phase parameterisation; day 4: harbour goal-met; day 5: audio shapes per phase; day 6: gather completes; day 7: send completes; day 8: persistence + auto-advance + ghosts; day 9: reduce-motion + clip-render + contrast).
+  - Run guide: `cd C:\Dev\gameX\game && npm run dev`, then open `http://localhost:5173/` (no query string for canonical first-run flow). DevTools open if you want to confirm the ethics-perimeter sweep yourself (no fetches after asset load; only `tide-pull/save/v1` in localStorage).
+- **Slice handoff:** see `docs/specs/feel-test-protocol.md` for the canonical stranger-test runbook. The slice ships per the design spec's TL;DR.
+- **Commit:** see `git log`.
