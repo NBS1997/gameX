@@ -138,3 +138,17 @@ Commit reviewed: `5aecde4`. Reviewer ran read-only against the diff `HEAD~1..HEA
   - JSON imports use the new `with { type: 'json' }` syntax (ES2024 / TS 5.6+). Older `assert { type: 'json' }` is deprecated and will fail under `verbatimModuleSyntax: true`.
   - Strict-mode TypeScript is now in force; the entity renderer's `switch` over `ReceiverType` is exhaustive and tsc will catch new receiver types if added without a case.
 - **Commit:** see `git log`.
+
+### Day 2 QA + Review — 2026-05-06 (orchestrator manual)
+
+- **Verdict:** APPROVED.
+- **tsc + lint:** both clean.
+- **Dev server smoke:** confirmed serves Night 1 JSON, transformed entities.ts, transformed main.ts at port 5173.
+- **Ethics-perimeter sweep:** clean — loader uses static JSON imports (no `fetch`); no `localStorage` writes; no analytics imports; no forbidden UI strings. DevDeps grew (eslint stack + prettier) — all standard, no telemetry.
+- **Stack discipline:**
+  - File layout matches tech-plan §2 — `src/level/`, `src/render/` created as their day arrives.
+  - `Goal` discriminated union by `kind` field gives exhaustiveness checks for free.
+  - `entities.ts` `switch` over `ReceiverType` is exhaustive; tsc will catch a new receiver type without a case.
+  - One `as BayBase`/`as NightDelta` cast at the loader boundary — pragmatic for static JSON imports, acceptable now; runtime validation can land alongside verb tests on day 4.
+- **Acceptance fit:** day-2 "Done when" met — loader returns typed `LevelDef`; main.ts wires it in; placeholder boat visible on Night 1 at (200, 540).
+- **Notes for day 3:** the motion bible's pull-math formula is what the fluid-sim spike implements. `phasePullStrength` and `pullRadius` are already in the level JSON and flow through `LevelDef`.
