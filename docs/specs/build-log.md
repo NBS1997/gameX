@@ -266,3 +266,31 @@ Commit reviewed: `5aecde4`. Reviewer ran read-only against the diff `HEAD~1..HEA
   - The recovery-from-soft-drift now resets `sent` to false on every receiver, including those that successfully crossed. That's intentional: soft-drift means "the night didn't go your way," and respawn restores all lanterns to the headland.
 - **Browser-required acceptance:** [ ] Open `?night=3` (waning gibbous). Six lanterns line the south edge near y=980-1000. Press-and-hold near them, lift them off the headland; release sends them east on the resulting current. Once 4+ have crossed `x > 1920`, goal-met fires.
 - **Commit:** see `git log`.
+
+## Day 8 — persistence + night picker + auto-advance + ghosts
+
+### Day 8 — 2026-05-06
+- **Built:**
+  - `game/src/state/meta.ts` — `MetaState { completedNights, freeReentry, sessionGhosts }`. Mutators: `recordNightComplete(meta, night, finalReceivers)` adds to completed set, snapshots receivers as ghosts, sets `freeReentry = true` when all 3 are completed. `nextLinearNight(meta)` returns next-uncompleted night for first-playthrough flow. `ghostsForNight(meta, night)` returns ghosts from earlier completed nights.
+  - `game/src/state/save.ts` — `loadSave()` and `writeSave(persisted)` against `localStorage` key `tide-pull/save/v1`. Single JSON blob with `version: 1`, `completedNights`, `freeReentry`. Versioned key + safe fallback to empty on parse error / version mismatch / quota exceeded.
+  - `game/src/render/ghosts.ts` — `renderGhosts(receivers)` builds a `Container` of faded boat / lantern Graphics at frozen positions. `alpha = 0.35`. No interaction.
+  - `game/src/scenes/nightPicker.ts` — `createNightPicker(onSelect)` returns a 3-slot picker (waxing / full / waning glyphs side-by-side at screen centre). `setMeta(meta)` updates per-slot interactivity: in `freeReentry`, all selectable; otherwise only the next-uncompleted-night is selectable (no padlock iconography ever — just dimmed alpha 0.25 on inactive slots).
+  - `game/src/main.ts` — restructured into `ActiveScene` discriminated union (`none` / `picker` / `night`). Boot reads save via `loadSave()` → `createMetaState()`. `?night=N` URL override still works (dev affordance) and bypasses the picker. Otherwise: if `freeReentry`, show picker; else load `nextLinearNight()`. On goal-complete, hold for 2.5s (held-success beat), then `recordNightComplete` + `writeSave` + advance: in linear-first-playthrough, jump to next night; in `freeReentry`, return to picker. Ghost layer rendered at the start of each night load with prior-night receiver positions at 35% alpha.
+- **Files touched:** `game/src/state/meta.ts` (new), `game/src/state/save.ts` (new), `game/src/render/ghosts.ts` (new), `game/src/scenes/nightPicker.ts` (new), `game/src/main.ts`.
+- **P3 cuts taken:**
+  - **Ambient creatures in sandbox** (P3c) — sandbox/free-pull mode is implicitly the picker scene's idle background (water keeps flowing). No gulls / whale yet.
+- **Out of scope:**
+  - **Cross-session ghosts.** Save persists `completedNights` + `freeReentry` only. Ghost positions live in memory and reset each session. Within-session cross-night ghosts are honoured per design spec; cross-session would need a separate save expansion and is post-slice.
+  - **Picker hover state.** Pixi `cursor: 'pointer'` is set on selectable slots but the OS cursor is hidden (canvas `cursor: none`); could add a Pixi-level hover scale-up. Polish.
+  - **Picker title-card / "tonight" framing.** No on-screen text per the design constraint; the picker is purely glyphs.
+- **Watch-outs:**
+  - The `?night=N` URL override bypasses the picker entirely. A user testing the slice freshly via `?night=2` will see N2 in isolation (no ghosts from N1 since none ran in this session). For the canonical playthrough the user should land at `http://localhost:5173/` (no query string) and let the linear flow run.
+  - `localStorage` quota is unlikely to be hit (single key, ~150 bytes), but the `writeSave` swallows the error if it does. The game stays playable; completion just doesn't persist across sessions.
+  - The held-success post-complete delay is 2.5s. If audio cues run longer (e.g. release-swell tail at 1.2s + held tone), they'll be cut off when the next night starts. Day-9 polish could let audio finish first.
+  - Resetting `localStorage` between sessions: from DevTools Application tab, delete the `tide-pull/save/v1` key. There is no in-game reset button by design (would invite a "play again from scratch" UI which fights cosy framing).
+- **Browser-required acceptance:**
+  - [ ] Fresh launch (clear localStorage first): land on N1 directly. Complete N1 → 2.5s held-success beat → auto-advance to N2 with N1's boat visible faintly at the harbour. Complete N2 → auto-advance to N3 with N1+N2 ghosts visible. Complete N3 → picker appears, all three glyphs selectable (free-reentry).
+  - [ ] Reload (no clear): picker should appear immediately with all three selectable.
+  - [ ] Click any glyph: that night loads with prior-completed-night ghosts visible.
+  - [ ] DevTools → Application → LocalStorage shows exactly one key, `tide-pull/save/v1`. JSON has `completedNights: [1, 2, 3]` and `freeReentry: true` after a full playthrough.
+- **Commit:** see `git log`.
