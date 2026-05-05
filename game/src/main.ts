@@ -1,4 +1,5 @@
 import { Application, Container, Graphics } from 'pixi.js';
+import { createAudioManager } from './audio/manager.ts';
 import {
   BAY_COLOUR,
   CURSOR_COLOUR,
@@ -69,12 +70,28 @@ const cursor = new Graphics()
 uiLayer.addChild(cursor);
 
 const pointer = createPointerState(app.stage, app.screen);
+const audio = createAudioManager();
 
 let wasHolding = false;
+let wasGoalComplete = false;
+let wasSoftDriftActive = false;
+let releaseHoldMs = 0;
 
 app.ticker.add((ticker) => {
   const dt = ticker.deltaMS / 1000;
   const pressEdge = pointer.holding && !wasHolding;
+  const releaseEdge = !pointer.holding && wasHolding;
+
+  if (pressEdge && !audio.started) {
+    void audio.start(state.level.night.lunarPhase);
+  }
+  if (pressEdge) {
+    audio.pressAttack();
+  }
+  if (releaseEdge) {
+    audio.releaseWhoosh(releaseHoldMs);
+    releaseHoldMs = 0;
+  }
 
   tryRecoverOnPressEdge(state, pressEdge);
 
@@ -87,7 +104,8 @@ app.ticker.add((ticker) => {
       dt,
     );
     pointer.holdMs += ticker.deltaMS;
-  } else {
+    releaseHoldMs = pointer.holdMs;
+  } else if (!pointer.holding) {
     pointer.holdMs = 0;
   }
 
@@ -99,6 +117,28 @@ app.ticker.add((ticker) => {
   harbour.sync(state);
   updateSoftDrift(state, worldLayer, cursor, dt);
 
+  // Audio edge events
+  const goalCompleteEdge =
+    state.goalProgress.kind === 'guide' &&
+    state.goalProgress.complete &&
+    !wasGoalComplete;
+  if (goalCompleteEdge) {
+    audio.goalMet();
+  }
+
+  const driftStartEdge = state.softDrift.active && !wasSoftDriftActive;
+  if (driftStartEdge) {
+    audio.softDriftSigh();
+    audio.duckBed(0.4, 0.4);
+  }
+  const driftEndEdge = !state.softDrift.active && wasSoftDriftActive;
+  if (driftEndEdge) {
+    audio.unduckBed(0.6);
+  }
+
   cursor.position.set(pointer.x, pointer.y);
   wasHolding = pointer.holding;
+  wasGoalComplete =
+    state.goalProgress.kind === 'guide' && state.goalProgress.complete;
+  wasSoftDriftActive = state.softDrift.active;
 });

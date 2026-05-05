@@ -210,3 +210,19 @@ Commit reviewed: `5aecde4`. Reviewer ran read-only against the diff `HEAD~1..HEA
   - [ ] Push boat off-screen → camera dims (~10% scale-down, off-centred OK for now), cursor dims to ~60%, boat respawns at initial position; next press-and-hold immediately re-engages and recovers camera + cursor.
   - [ ] Compare with `?night=2` (full moon, stronger pull) and `?night=3` (waning gibbous, medium pull): pull radius and strength visibly different.
 - **Commit:** see `git log`.
+
+## Day 5 — ⛳ AUDIO GATE + ambient bed + filter automation
+
+### Day 5 — 2026-05-06
+- **Built:** `game/src/audio/manager.ts` — `createAudioManager()` returns an `AudioManager` with lazy `start(phase)` (browser autoplay policy: bootstraps on first user-gesture). Audio graph: master gain → bed gain → bed lowpass filter → 3 detuned sine oscillators (55Hz / 110.3Hz / 165.5Hz) for an "ocean-ish" drone. Per-phase filter automation via `BiquadFilterNode.frequency.linearRampToValueAtTime` over 1.5s on `setPhase(phase)` — cutoff 800/2000/1400 Hz for waxing/full/waning. SFX: `pressAttack` (filtered noise burst, 50ms attack / 400ms decay), `releaseWhoosh` (broader noise, intensity scales with hold-ms 0–600 → 0.1–0.28 peak gain), `goalMet` (sine bell at 880Hz with 1.4s tail + shaped noise release-swell variant), `softDriftSigh` (filtered noise sweeping 2kHz → 180Hz over 800ms). `duckBed(amount, attackS)` + `unduckBed(releaseS)` for ducking the bed during drift.
+- **All audio is synthesised — no .ogg / .mp3 files in slice.** Cosy-cosmic-intimate texture from sines + lowpass + envelopes; no external assets to author. Real recordings can replace this on a polish pass; the manager interface stays.
+- **Wiring in main.ts:** edge detection for press / release / goal-complete / soft-drift-start / soft-drift-end, each triggering the appropriate cue. Bed gets ducked −40% on drift-start, restored on drift-end. Audio bootstrap on first press-edge (so AudioContext.resume happens inside a user gesture).
+- **Files touched:** `game/src/audio/manager.ts` (new), `game/src/main.ts`.
+- **P3 cuts taken:** none.
+- **Out of scope:** `setPhase` exists but isn't called yet — the day-8 picker (or a future `?night=N` reload that triggers it) hooks it. For day 5 the bed plays at the initially-loaded phase's filter cutoff and stays there until reload.
+- **Watch-outs:**
+  - First press has a perceivable lag because `AudioContext.resume` is async; the initial press-attack may be silent. Subsequent presses are instant.
+  - Three sine oscillators with sustained playback consume CPU. Total bed gain at 0.05 keeps it well below clipping.
+  - Synthesised audio is harsher than recorded ambient — the filter cutoff per phase carries most of the "tonal" work.
+- **Browser-required acceptance:** [ ] Press-and-hold → soft attack sound; release → whoosh (intensity scales with how long held). Reach harbour → bell + swell. Drift off-screen → soft sigh; bed audibly ducks during drift, restores on press-edge. Compare bed across `?night=1` / `?night=2` / `?night=3` — N1 muffled (800Hz cutoff), N2 luminous (full-band), N3 in-between (1.4kHz).
+- **Commit:** see `git log`.
