@@ -16,7 +16,12 @@ export interface ReceiverInstance {
 
 export type GoalProgress =
   | { kind: 'guide'; inHarbourMs: number; complete: boolean }
-  | { kind: 'gather'; clusterCount: number; complete: boolean }
+  | {
+      kind: 'gather';
+      clusterCount: number;
+      clusterMs: number;
+      complete: boolean;
+    }
   | { kind: 'send'; sentCount: number; complete: boolean };
 
 export interface SoftDriftState {
@@ -63,7 +68,7 @@ function initialGoalProgress(kind: GoalKind): GoalProgress {
     case 'guide':
       return { kind: 'guide', inHarbourMs: 0, complete: false };
     case 'gather':
-      return { kind: 'gather', clusterCount: 0, complete: false };
+      return { kind: 'gather', clusterCount: 0, clusterMs: 0, complete: false };
     case 'send':
       return { kind: 'send', sentCount: 0, complete: false };
   }
@@ -87,5 +92,9 @@ export function recoverFromSoftDrift(state: GameState): void {
   state.softDrift.elapsedMs = 0;
   if (state.goalProgress.kind === 'guide') {
     state.goalProgress.inHarbourMs = 0;
+  }
+  if (state.goalProgress.kind === 'gather') {
+    state.goalProgress.clusterMs = 0;
+    state.goalProgress.clusterCount = 0;
   }
 }

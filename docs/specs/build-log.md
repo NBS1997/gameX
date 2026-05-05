@@ -226,3 +226,21 @@ Commit reviewed: `5aecde4`. Reviewer ran read-only against the diff `HEAD~1..HEA
   - Synthesised audio is harsher than recorded ambient — the filter cutoff per phase carries most of the "tonal" work.
 - **Browser-required acceptance:** [ ] Press-and-hold → soft attack sound; release → whoosh (intensity scales with how long held). Reach harbour → bell + swell. Drift off-screen → soft sigh; bed audibly ducks during drift, restores on press-edge. Compare bed across `?night=1` / `?night=2` / `?night=3` — N1 muffled (800Hz cutoff), N2 luminous (full-band), N3 in-between (1.4kHz).
 - **Commit:** see `git log`.
+
+## Day 6 — verb 2 (gather) + lunar-phase cursor
+
+### Day 6 — 2026-05-06
+- **Built:**
+  - `game/src/verbs/gather.ts` — `updateGather`. Each frame: lanterns sample local flow, integrate to velocity with drag, advance position. Lost-count (off-screen) > half the lanterns → `startSoftDrift`. Compute centroid of on-screen lanterns; count those within `clusterRadius` of centroid; if count ≥ `minCount` for `HELD_CLUSTER_MS = 1000`, mark complete. Decays cluster timer when not satisfied.
+  - `game/src/render/cursor.ts` — `makeCursorForPhase(phase)` returns the right Pixi `Graphics` per the motion-and-colour bible: waxing 24px warm-cream; full 32px cool-white + halo; waning gibbous 28px silvered + shadow on trailing edge.
+  - `game/src/state/gameState.ts` — added `clusterMs` to gather progress; `recoverFromSoftDrift` resets it.
+  - `game/src/main.ts` — switch on `goal.kind` to dispatch the correct verb update; cursor now built via `makeCursorForPhase(state.level.night.lunarPhase)` so the moon-glyph variants land. Goal-complete edge detection generalised to any goal kind.
+- **Files touched:** `game/src/verbs/gather.ts` (new), `game/src/render/cursor.ts` (new), `game/src/state/gameState.ts`, `game/src/main.ts`.
+- **P3 cuts taken:** none.
+- **Out of scope:**
+  - Cluster-progress visual feedback (e.g. lantern halos brighten when in cluster). Audio bell on completion is the primary feedback for now; visual polish day 9.
+  - Cross-night persistence (boat-in-harbour ghost from N1 visible in N2). Bundles with day-8 picker + persistence work.
+  - Cursor "phase shadow rotates with cursor velocity" cosmetic (P3a). Static shadow OK for slice acceptance.
+- **Watch-outs:** the gather centroid is the *mean* of on-screen lanterns. If lanterns split into two clusters, the centroid sits between them and neither cluster registers. Acceptable per design — pull all of them together as one cluster. If players struggle, a future pass could use k-means or just "count lanterns within `clusterRadius` of cursor".
+- **Browser-required acceptance:** [ ] Open `?night=2` (full moon). Press-and-hold near scattered lanterns; they drift toward the cursor on the resulting current. Once 6+ lanterns are within ~120px of the cluster centroid for 1s, goal-met fires (chime + swell). Cursor visibly larger and brighter than N1's waxing crescent.
+- **Commit:** see `git log`.

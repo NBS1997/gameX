@@ -1,9 +1,7 @@
-import { Application, Container, Graphics } from 'pixi.js';
+import { Application, Container } from 'pixi.js';
 import { createAudioManager } from './audio/manager.ts';
 import {
   BAY_COLOUR,
-  CURSOR_COLOUR,
-  CURSOR_PLACEHOLDER_RADIUS,
   LETTERBOX_COLOUR,
   LOGICAL_HEIGHT,
   LOGICAL_WIDTH,
@@ -11,12 +9,14 @@ import {
 import { createPointerState } from './input/pointer.ts';
 import { loadLevel } from './level/loader.ts';
 import type { NightNumber } from './level/types.ts';
+import { makeCursorForPhase } from './render/cursor.ts';
 import { createEntityRenderer } from './render/entities.ts';
 import { createHarbourRenderer } from './render/harbour.ts';
 import { createWaterRenderer } from './render/water.ts';
 import { tryRecoverOnPressEdge, updateSoftDrift } from './scenes/softDrift.ts';
 import { FluidGrid } from './sim/fluid.ts';
 import { createGameState } from './state/gameState.ts';
+import { updateGather } from './verbs/gather.ts';
 import { updateGuide } from './verbs/guide.ts';
 import './style.css';
 
@@ -64,9 +64,7 @@ worldLayer.addChild(harbour.container);
 const entities = createEntityRenderer(state.receivers);
 worldLayer.addChild(entities.container);
 
-const cursor = new Graphics()
-  .circle(0, 0, CURSOR_PLACEHOLDER_RADIUS)
-  .fill(CURSOR_COLOUR);
+const cursor = makeCursorForPhase(state.level.night.lunarPhase);
 uiLayer.addChild(cursor);
 
 const pointer = createPointerState(app.stage, app.screen);
@@ -110,7 +108,17 @@ app.ticker.add((ticker) => {
   }
 
   grid.step(dt);
-  updateGuide(state, grid, dt);
+  switch (state.level.night.goal.kind) {
+    case 'guide':
+      updateGuide(state, grid, dt);
+      break;
+    case 'gather':
+      updateGather(state, grid, dt);
+      break;
+    case 'send':
+      // Day 7 — see verbs/settle.ts
+      break;
+  }
 
   water.update();
   entities.sync(state.receivers);
@@ -118,11 +126,11 @@ app.ticker.add((ticker) => {
   updateSoftDrift(state, worldLayer, cursor, dt);
 
   // Audio edge events
-  const goalCompleteEdge =
-    state.goalProgress.kind === 'guide' &&
-    state.goalProgress.complete &&
-    !wasGoalComplete;
-  if (goalCompleteEdge) {
+  const goalNowComplete =
+    (state.goalProgress.kind === 'guide' && state.goalProgress.complete) ||
+    (state.goalProgress.kind === 'gather' && state.goalProgress.complete) ||
+    (state.goalProgress.kind === 'send' && state.goalProgress.complete);
+  if (goalNowComplete && !wasGoalComplete) {
     audio.goalMet();
   }
 
@@ -138,7 +146,6 @@ app.ticker.add((ticker) => {
 
   cursor.position.set(pointer.x, pointer.y);
   wasHolding = pointer.holding;
-  wasGoalComplete =
-    state.goalProgress.kind === 'guide' && state.goalProgress.complete;
+  wasGoalComplete = goalNowComplete;
   wasSoftDriftActive = state.softDrift.active;
 });
