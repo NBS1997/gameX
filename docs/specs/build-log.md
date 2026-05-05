@@ -179,3 +179,34 @@ Commit reviewed: `5aecde4`. Reviewer ran read-only against the diff `HEAD~1..HEA
   - **Code-level gate ✅:** `applyPull` correctly multiplies by `pullStrength` (0.7 / 1.0 / 0.85 from level JSON) and uses `pullRadius` (80 / 140 / 110) to size the affected neighbourhood. Each phase is therefore measurably different at the math level. `tsc --noEmit` clean. `npm run lint` clean. Dev server boots; modules resolve through Vite.
   - **Browser-required gate ⏳ (pending user):** the canonical "stranger pulls water and wants to keep doing it for 60s + visibly different per phase" judgement requires a human at the keyboard with sound on. To run it: `cd game && npm run dev`, open `http://localhost:5173/` (default night = 1, waxing crescent / weak pull). Then `http://localhost:5173/?night=2` (full moon / strong pull) and `http://localhost:5173/?night=3` (waning gibbous / medium pull). Acceptance is qualitative — does pulling feel hypnotic, and is the difference between phases obvious in the hand? Failing means pivot to SPH-lite per tech-plan §4 Day 3.
 - **Commit:** see `git log`.
+
+## Day 4 — verb 1 (guide) + soft-drift skeleton
+
+### Day 4 — 2026-05-06
+- **Built:**
+  - `game/src/state/gameState.ts` — first real state object. `GameState` holds `currentNight`, `level`, `receivers` (mutable position/velocity/initial per spawn), `goalProgress` (discriminated union: `guide`/`gather`/`send`), `softDrift` (active flag + elapsed-ms + camera-scale + cursor-alpha). Mutators: `createGameState(level, night)`, `startSoftDrift(state)`, `recoverFromSoftDrift(state)` (resets receivers to initial positions and resets guide held-success accumulator).
+  - `game/src/verbs/guide.ts` — `updateGuide(state, grid, dt)` is the per-frame verb update for Night 1. For each boat: sample local water flow from the grid, integrate to velocity, apply frame-rate-independent drag (`exp(-rate * dt)`), advance position. Off-screen → `startSoftDrift`. In-harbour distance check accumulates `inHarbourMs` (≥ 1500ms = held-success-complete; partial decays at 2000 ms/sec when out of harbour). Skips entirely when soft-drift is active.
+  - `game/src/scenes/softDrift.ts` — `updateSoftDrift(state, worldLayer, cursor, dt)` ramps `cameraScale` 1.0 → 0.9 and `cursorAlpha` 1.0 → 0.6 over `DRIFT_DURATION_MS = 1200` while active. On recovery: ease scale back up (rate 2/s) and cursor alpha back up (rate 5/s). `tryRecoverOnPressEdge(state, pressEdge)` fires `recoverFromSoftDrift` only on the rising edge of a press.
+  - `game/src/render/entities.ts` — refactored from "stateless render of spawn list" to `EntityRenderer { container, sync(receivers) }`. Holds a `Map<id, Graphics>`, syncs Graphics positions from state each frame.
+  - `game/src/render/harbour.ts` — new. `HarbourRenderer { container, sync(state) }` draws the harbour goal-circle ring at `goal.target.{x,y}` with radius `goal.target.radius`. Three states: idle (`#4d5c7a` rim, 0.4 alpha), in-progress (`#a8b5cc` glow, 0.7), complete (`#fff4d6`, 0.9). Sync narrows on `goal.kind === 'guide'` and on `goalProgress.kind === 'guide'`; safe no-op for other goal kinds.
+  - `game/src/main.ts` — restructured into world/UI layer split. `worldLayer` holds water + harbour + entities and is what `softDrift` scales. `uiLayer` holds the cursor and stays at 1.0× — so the cursor doesn't shrink during soft-drift and remains in the captured frame for clip-render acceptance. `worldLayer.pivot/position` set to the centre of the logical playfield so `worldLayer.scale` zooms from centre. Press-edge detection in the ticker (`pressEdge = pointer.holding && !wasHolding`) feeds `tryRecoverOnPressEdge`. Pull is skipped when `state.softDrift.active`.
+- **Files touched:** `game/src/state/gameState.ts` (new), `game/src/verbs/guide.ts` (new), `game/src/scenes/softDrift.ts` (new), `game/src/render/harbour.ts` (new), `game/src/render/entities.ts` (refactor), `game/src/main.ts`.
+- **P3 cuts taken:** none.
+- **Out of scope (deferred):**
+  - **Held-success animation/sound.** Design spec calls for "1.5–2s of camera ease-in on the saved thing, ambient track swells one note." For day 4 the held-success state just sets `progress.complete = true`; the camera ease-in + audio swell are day-5 audio + day-9 polish work.
+  - **"Night ends" transition.** Day 4 has no scene transition between nights; this is part of day 8 (persistence + picker). For now `progress.complete = true` is a static end-state — the harbour ring goes cream and the boat sits there.
+  - **Boat sprite art.** Still a brown ellipse + rim. Real sprite art arrives day 4 *of the next iteration cycle* (slice-internal polish on day 9, or post-slice).
+  - **Soft-drift respawn fade animation.** Currently a teleport (instant position reset on press-edge during drift). Fade-in/fade-out is day-9 polish.
+  - **Reduce-motion path** for the soft-drift camera scale — implements day 9; the swap rule from the motion bible is to skip the scale animation but keep the cursor alpha dim.
+- **Watch-outs:**
+  - The world-layer split + pivot+position trick means transforms relative to centre. If a future module hardcodes "use stage.scale" thinking it's the camera, that's a bug; use `worldLayer.scale`. Document this convention in conventions.md if it bites.
+  - `tryRecoverOnPressEdge` reads `pressEdge` computed by main.ts each frame. If a verb starts polling pointer state directly, it must also use the press-edge convention or inadvertently re-trigger recovery.
+  - `updateGuide` uses `goal.kind === 'guide' && progress.kind === 'guide'` for narrowing; the discriminated unions (`Goal`, `GoalProgress`) MUST stay aligned. Adding a verb means adding a new `kind` to BOTH unions and a matching case to `initialGoalProgress` in `gameState.ts`.
+  - Boat off-screen → soft-drift triggers on first qualifying frame. There's no "are you sure" or hysteresis; for day 4 this matches the design ("no buttons, no modals"). If it's too sensitive in practice, increase `OFFSCREEN_MARGIN` or add a few-frame grace period.
+  - `FLOW_TO_VELOCITY = 6` and `BOAT_DRAG_RATE = 0.6` are spike values. Tune in the same window as the day-3 fluid-feel work.
+- **Browser-required acceptance** (pending user):
+  - [ ] Press-and-hold to pull water; the boat drifts on the resulting current.
+  - [ ] Boat reaches harbour ring → ring brightens to glow → after 1.5s held in harbour, ring goes cream (complete).
+  - [ ] Push boat off-screen → camera dims (~10% scale-down, off-centred OK for now), cursor dims to ~60%, boat respawns at initial position; next press-and-hold immediately re-engages and recovers camera + cursor.
+  - [ ] Compare with `?night=2` (full moon, stronger pull) and `?night=3` (waning gibbous, medium pull): pull radius and strength visibly different.
+- **Commit:** see `git log`.
