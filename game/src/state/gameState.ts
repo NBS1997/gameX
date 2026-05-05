@@ -12,6 +12,7 @@ export interface ReceiverInstance {
   position: Vec2;
   velocity: Vec2;
   initial: Vec2;
+  sent: boolean;
 }
 
 export type GoalProgress =
@@ -52,6 +53,7 @@ export function createGameState(
       position: { x: s.position.x, y: s.position.y },
       velocity: { x: 0, y: 0 },
       initial: { x: s.position.x, y: s.position.y },
+      sent: false,
     })),
     goalProgress: initialGoalProgress(level.night.goal.kind),
     softDrift: {
@@ -87,6 +89,7 @@ export function recoverFromSoftDrift(state: GameState): void {
     r.position.y = r.initial.y;
     r.velocity.x = 0;
     r.velocity.y = 0;
+    r.sent = false;
   }
   state.softDrift.active = false;
   state.softDrift.elapsedMs = 0;
@@ -96,5 +99,8 @@ export function recoverFromSoftDrift(state: GameState): void {
   if (state.goalProgress.kind === 'gather') {
     state.goalProgress.clusterMs = 0;
     state.goalProgress.clusterCount = 0;
+  }
+  if (state.goalProgress.kind === 'send') {
+    state.goalProgress.sentCount = 0;
   }
 }

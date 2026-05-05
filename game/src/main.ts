@@ -18,6 +18,7 @@ import { FluidGrid } from './sim/fluid.ts';
 import { createGameState } from './state/gameState.ts';
 import { updateGather } from './verbs/gather.ts';
 import { updateGuide } from './verbs/guide.ts';
+import { updateSend } from './verbs/settle.ts';
 import './style.css';
 
 document.documentElement.style.setProperty(
@@ -116,7 +117,7 @@ app.ticker.add((ticker) => {
       updateGather(state, grid, dt);
       break;
     case 'send':
-      // Day 7 — see verbs/settle.ts
+      updateSend(state, grid, dt);
       break;
   }
 

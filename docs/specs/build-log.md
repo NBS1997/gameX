@@ -244,3 +244,25 @@ Commit reviewed: `5aecde4`. Reviewer ran read-only against the diff `HEAD~1..HEA
 - **Watch-outs:** the gather centroid is the *mean* of on-screen lanterns. If lanterns split into two clusters, the centroid sits between them and neither cluster registers. Acceptable per design — pull all of them together as one cluster. If players struggle, a future pass could use k-means or just "count lanterns within `clusterRadius` of cursor".
 - **Browser-required acceptance:** [ ] Open `?night=2` (full moon). Press-and-hold near scattered lanterns; they drift toward the cursor on the resulting current. Once 6+ lanterns are within ~120px of the cluster centroid for 1s, goal-met fires (chime + swell). Cursor visibly larger and brighter than N1's waxing crescent.
 - **Commit:** see `git log`.
+
+## Day 7 — verb 3 (send) + ⛳ trailer cut
+
+### Day 7 — 2026-05-06
+- **Built:**
+  - `game/src/verbs/settle.ts` — `updateSend`. Per-lantern: sample flow → integrate velocity → drag → advance → check edge crossing (`hasCrossedEdge` per `goal.edge`). Once a lantern crosses, `r.sent = true` and it stops being driven (it's gone). Lost-count > half → soft-drift. Goal complete when `sentCount >= goal.minCount`. The third-verb pick is "send" (paper lanterns released east) per tech-plan §6 + design-spec OQ#1; the file name `settle.ts` is the abstract slot kept by tech-plan so the swap is contained.
+  - `game/src/state/gameState.ts` — `ReceiverInstance` gains `sent: boolean` (default false). `recoverFromSoftDrift` resets `sent` to false on respawn. `recoverFromSoftDrift` also resets `sentCount` for send-progress.
+  - `game/src/main.ts` — verb dispatch case for 'send' calls `updateSend`.
+  - `docs/specs/trailer-cut.md` — 30-second cut sequence per design-spec §18, with frame-by-frame timing, OBS recording recipe, and what's deferred to polish. The actual `.mp4` recording is a user step (OBS not invokable from the orchestrator); the doc is the reproducible script.
+- **Files touched:** `game/src/verbs/settle.ts` (new), `game/src/state/gameState.ts`, `game/src/main.ts`, `docs/specs/trailer-cut.md` (new).
+- **P3 cuts taken:** none.
+- **Out of scope:**
+  - **Trailer .mp4 recording.** Requires OBS or DevTools recording — a user task. The doc gives the recipe.
+  - **Lantern art.** Still a Pixi `Graphics` two-circle disc + halo — readable at the 16×16 px target but not styled paper-lanterns yet. Polish.
+  - **Sent-lantern visual fade.** Once `r.sent = true`, the lantern Graphics keeps its position (it's flying off-screen on momentum). A fade-out as it crosses would be elegant; day-9 polish.
+  - **Edge highlight.** No visual indicator of "the east edge is the goal" right now. The cosy "no on-screen text" rule means we can't label it; an alternative would be a faint light-line or trail of foam at the east edge. Day-9 polish.
+- **Watch-outs:**
+  - Once a lantern is `sent`, it's no longer simulated (no flow + drag). Position stays as last-set; it sits visually in whatever screen position it was at the crossing frame. The Graphics remains in `entityLayer`; if this looks awkward in trailer footage, a day-9 fade-and-detach would address it.
+  - `goal.edge` is one of `north | south | east | west` per `level/types.ts`; `hasCrossedEdge` is exhaustive over those four. Adding a new edge value (e.g. 'corner-NE') would need a new case + a new `edgeCoordinate` mapping.
+  - The recovery-from-soft-drift now resets `sent` to false on every receiver, including those that successfully crossed. That's intentional: soft-drift means "the night didn't go your way," and respawn restores all lanterns to the headland.
+- **Browser-required acceptance:** [ ] Open `?night=3` (waning gibbous). Six lanterns line the south edge near y=980-1000. Press-and-hold near them, lift them off the headland; release sends them east on the resulting current. Once 4+ have crossed `x > 1920`, goal-met fires.
+- **Commit:** see `git log`.
