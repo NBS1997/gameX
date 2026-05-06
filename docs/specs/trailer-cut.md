@@ -6,7 +6,7 @@ phase: 3
 authors: [orchestrator]
 ---
 
-# Trailer Cut — *Tide / Pull*
+# Trailer Cut — *Neap* (working title was *Tide / Pull*)
 
 The 30-second wordless trailer per design-spec §18 / Goal 7. Strategist's R2 sketch refined for what's actually buildable from the current slice.
 

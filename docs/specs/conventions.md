@@ -6,7 +6,7 @@ phase: 2.5
 authors: [orchestrator]
 ---
 
-# Conventions — *Tide / Pull* slice
+# Conventions — *Neap* slice (working title was *Tide / Pull*)
 
 The single source of code conventions for the vertical slice. Read on every dev / reviewer run. Replaces (and shrinks down) the older Tamagotchi-era CONVENTIONS / ARCHITECTURE / ANTI_PATTERNS / security stack.
 
@@ -16,7 +16,7 @@ The single source of code conventions for the vertical slice. Read on every dev 
 - **Renderer:** Pixi.js 8.18+. WebGL by default; switch to WebGPU only if profiled.
 - **Build:** Vite 8 with Rolldown. `npm run dev` for HMR at `http://localhost:5173/`.
 - **Audio:** native Web Audio API (`AudioContext` + `BiquadFilterNode` + `GainNode`). Howler 2.2 only as fallback if exercised on day 5.
-- **Persistence:** `localStorage`, single key `tide-pull/save/v1`.
+- **Persistence:** `localStorage`, single key `neap/save/v2`. Legacy `tide-pull/save/v1` is read-only on first launch (one-time migration) and then ignored.
 - **Tests:** none automated for the slice. Manual feel-test via `docs/specs/feel-test-protocol.md`.
 - **Linting:** ESLint 9 flat config + Prettier (Vite scaffold defaults — do not deviate).
 
@@ -78,10 +78,11 @@ If a file doesn't fit one of these directories, ask whether it earns a new direc
 
 ## Save
 
-- Single `localStorage` key: `tide-pull/save/v1`.
-- Single JSON blob: `{ completed: { 1: bool, 2: bool, 3: bool }, bayDelta: { items: [...] }, version: 1 }`.
-- No real-world date written to save. No notification scheduling. No streak field.
-- Migration logic deferred (the `v1` suffix is a placeholder for the future; nothing reads it as a number yet).
+- Single `localStorage` key: `neap/save/v2`.
+- Single JSON blob: `{ version: 2, completedNights: NightNumber[], freeReentry: boolean, ghosts: PersistedGhost[] }`.
+- `PersistedGhost = { night: NightNumber; type: ReceiverType; x: number; y: number }` — bay-memory only, never a visit counter or completion timestamp.
+- No real-world date written to save. No notification scheduling. No streak field. No attempts/failures count.
+- Legacy migration: `tide-pull/save/v1` (older shape, no `ghosts` field) is read once on first launch and lifted into the v2 shape with `ghosts: []`. The legacy key is left in place defensively (cheap; allows rollback) but never written to.
 
 ## No-go list (ethics ban list as code rules)
 
@@ -93,7 +94,7 @@ Items 21–33 of `docs/specs/2026-05-05-tide-pull-design.md`, restated as concre
 - ❌ Any `Date` comparison against a stored historical date for gating content.
 - ❌ Any UI labelled "share", "wishlist", "follow", "tweet", "post". (Trailer end-card is external; not in code.)
 - ❌ Any `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource` after the initial asset load. (Asset load itself is via Pixi `Assets.load` and `AudioContext` decode — those are fine.)
-- ❌ Any `localStorage.setItem` with a key other than `tide-pull/save/v1`.
+- ❌ Any `localStorage.setItem` with a key other than `neap/save/v2` (legacy `tide-pull/save/v1` is read-only).
 - ❌ Any `Notification` API call, `serviceWorker` registration, push, or banner code path.
 - ❌ Any analytics / telemetry / error-reporting SDK: Sentry, GA, gtag, Plausible, PostHog, Mixpanel, Amplitude, Heap, Hotjar, FullStory, LogRocket. Not even imported.
 - ❌ Any IAP, cosmetic shop, or real-money code.
@@ -101,6 +102,20 @@ Items 21–33 of `docs/specs/2026-05-05-tide-pull-design.md`, restated as concre
 - ❌ Any in-game text other than the 3-second lunar-phase title card per night (3 strings total).
 
 The reviewer agent grep-checks these every run.
+
+## Perimeter — UI surfaces that do not exist
+
+Hard rule, codified during the v0.5 closure sprint per habit-formation R2 P2 #17. Cannot be violated without an explicit Council Override entry in this file.
+
+- ❌ No `share`, `wishlist`, `follow`, `tweet`, `post`, `gift`, `invite`, `clip`, or `screenshot-share` button anywhere in the player-facing UI.
+- ❌ No "rate this game", "review on Steam", or "leave feedback" surface inside the build.
+- ❌ No social-graph features (no friend list, no leaderboard against friends, no friend-recommends, no co-op invite).
+- ❌ No "your daily bay is ready" / "you missed Tuesday's bay" / any return-pressure copy.
+- ❌ No achievements, no badges, no unlock surfaces beyond the in-session linear→free-pick gate.
+
+Any external CTA (Steam wishlist, itch follow, social handle) lives **only** in the trailer-end card or external store-page surfaces — never in the build itself. The trailer's wishlist card is a Steam-page artefact, not in-game UI.
+
+If a future feature seems to require any of the above, the answer is "no" by default; an explicit Council Override entry must justify in writing why this game is the exception, and the override must be backed by a Round-2 critique pass.
 
 ## Anti-patterns
 

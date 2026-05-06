@@ -527,3 +527,25 @@ Picking up the deferred-polish backlog from the discoverability pass:
 | Boat sluggishness / arena wipe (new bug) | ✅ fixed |
 
 - **Commit:** see `git log`.
+
+## Closure-sprint Day 1 — rename to *Neap* + save v2 migration + perimeter codification
+
+### Day 1 — 2026-05-06 (closure sprint)
+- **Built:**
+  - **P1 #1 Rename to *Neap* in player-facing surfaces.** `game/index.html` `<title>`, `game/package.json` `name`, `README.md` (top + body), `docs/HOW-TO-PLAY.md` (top + save-key reference at the persistence-explainer line), `docs/specs/conventions.md` (intro + persistence + save section + ban-list save-key clause), `docs/specs/feel-test-protocol.md` (intro + ethics-perimeter localStorage check; the feel-test rename was bundled into captain cycle 1's `8fc4a29`), `docs/specs/motion-and-colour-bible.md` (intro), `docs/specs/trailer-cut.md` (intro). Each retains a "(working title was *Tide / Pull*)" note for fidelity. Historical specs left alone per closure-sprint tech-plan §2.5.
+  - **P1 #2 Save schema migration `tide-pull/save/v1` → `neap/save/v2`.** `game/src/state/save.ts` reads v2 first; falls back to v1 once and migrates forward, leaving the legacy key in place defensively. `PersistedMeta` gains a `ghosts: PersistedGhost[]` field; `MetaState` gains a `persistedGhosts` array that mirrors what's written. `recordNightComplete` updates both the in-session `Map` and the persisted array on each completion (skips sent lanterns). `ghostsForNight` unifies session + persisted (session wins when both have the same night, avoiding duplicates). New `allGhostsForPicker(meta)` helper for day 7 picker-as-place.
+  - **P2 #17 Perimeter codification (moved up to day 1).** New section "Perimeter — UI surfaces that do not exist" appended to `docs/specs/conventions.md` per habit-formation R2. Hard rule: no in-game share/wishlist/follow/clip/screenshot-share/social-graph/return-pressure/achievements surfaces. Council Override required for any future exception.
+- **Bundled from captain cycle 1 (`8fc4a29`):** the moonrise reduce-motion swap (P1 #3) was shipped by captain cycle 1 ahead of the manual closure-sprint kick-off; recorded here for traceability. See `docs/specs/forward-log.md` cycle 1 for the cycle's evidence trail.
+- **Files touched (this commit):** `game/src/state/save.ts` (rewrite), `game/src/state/meta.ts` (extend), `game/index.html`, `game/package.json`, `README.md`, `docs/HOW-TO-PLAY.md`, `docs/specs/conventions.md`, `docs/specs/motion-and-colour-bible.md`, `docs/specs/trailer-cut.md`, plus new `docs/specs/2026-05-06-tech-plan-closure-sprint.md` and `docs/specs/2026-05-06-tide-pull-retrospective.md` from the retrospective + tech-plan flow that preceded day 1.
+- **Verification:** `npx tsc --noEmit` clean; `npm run lint` clean; ripgrep audit confirms remaining `tide.?pull|Tide / Pull` hits are all in the expected categories: (a) historical specs intentionally left alone; (b) the `LEGACY_KEY` constant in `save.ts` for migration; (c) "(working title was *Tide / Pull*)" historical notes in renamed docs; (d) `CLAUDE.md` and `.claude/agents/*.md` (internal team-and-workflow docs not in the rename list — can update on day 11/12 cleanup if they bite).
+- **P3 cuts taken:** none.
+- **Out of scope (deferred to later closure-sprint days):**
+  - **OQ18 N3-only direct-receiver-pull gate** is day 3 work, not day 1. N1 and N2 still get direct receiver pull from `applyReceiverAttraction` as today.
+  - **Cursor-trail removal + cursor-tether shimmer** is day 2 work.
+  - **Picker-as-place (visual half of P1 #2)** is day 7 work — the schema landed today, but `showPicker()` doesn't yet render persisted ghosts on the picker scene.
+  - **Intent beat for N2 + N3, N3 headland fire, N3 fade-to-silence + bell callback** are days 4–6.
+- **Watch-outs:**
+  - Players who load the slice once after this commit will have BOTH `tide-pull/save/v1` (legacy, read-only) and `neap/save/v2` (canonical, written) in their localStorage. That's expected; the ethics-perimeter sweep in `feel-test-protocol.md` was updated to acknowledge it.
+  - Day 1 changed the migration write path (`writeSave` is called from `loadSave` during the legacy migration). On any localStorage-disabled or quota-exceeded environment the migration silently no-ops, the empty save shape is returned, and the game starts fresh — no error surfaced to the player. Consistent with the existing v1 defensive pattern.
+  - The `allGhostsForPicker` helper exists today but isn't called yet; day 7's `showPicker()` change will wire it in.
+- **Commit:** see `git log`.

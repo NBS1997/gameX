@@ -6,7 +6,7 @@ phase: 3
 authors: [dev-agent]
 ---
 
-# Motion-and-Colour Bible — *Tide / Pull*
+# Motion-and-Colour Bible — *Neap* (working title was *Tide / Pull*)
 
 The single source for motion timings, colour values, lunar variants, and shape language. Read by dev-agent and reviewer on every day from day 2 onward. Authored on day 2 per tech-plan §Day 2 build sequence.
 

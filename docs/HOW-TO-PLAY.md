@@ -1,4 +1,4 @@
-# How to Play — *Tide / Pull*
+# How to Play — *Neap*
 
 You are the moon. The bay is below you. Press and hold the mouse button anywhere on the bay to pull the tide toward where you're hovering. Let go and the water rushes home.
 
@@ -40,7 +40,7 @@ Pulling water in is the wind-up. Releasing is where the boat actually moves, whe
 
 When all three nights are complete, you land on a moon-glyph picker — three lunar phases side by side. From then on you can revisit any night in any order. There is no "done" state, no "complete" badge, no record of how many times you've played. The bay simply waits.
 
-If you completed nights in this session, the bay you re-enter shows faint ghosts of what you did — a boat sits where you guided it, lanterns linger where you gathered them. These are session-only; closing the tab clears them. The completed-nights record itself does carry across sessions, in a single `localStorage` key called `tide-pull/save/v1`.
+If you completed nights in this session, the bay you re-enter shows faint ghosts of what you did — a boat sits where you guided it, lanterns linger where you gathered them. From the v0.5 closure sprint onward, those ghost positions also persist across sessions in a single `localStorage` key called `neap/save/v2` (the legacy `tide-pull/save/v1` key is read once on first load and migrated forward; nothing is sent anywhere).
 
 ## What the slice does not do
 
