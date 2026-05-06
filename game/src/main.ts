@@ -25,6 +25,7 @@ import {
   createMoonrise,
   rememberWorldLayerBaseY,
 } from './render/moonrise.ts';
+import { createIntentBeat } from './render/intentBeat.ts';
 import { createTitleCard } from './render/titleCard.ts';
 import { createWaterRenderer } from './render/water.ts';
 import { createNightPicker } from './scenes/nightPicker.ts';
@@ -86,6 +87,9 @@ worldLayer.addChild(water.sprite);
 
 const ghostLayer = new Container();
 worldLayer.addChild(ghostLayer);
+
+const intentBeat = createIntentBeat();
+worldLayer.addChild(intentBeat.container);
 
 const ambientLife = createAmbientLife();
 worldLayer.addChild(ambientLife.container);
@@ -161,6 +165,7 @@ app.ticker.add((ticker) => {
     audio.pressAttack();
     if (titleCard.isActive()) titleCard.skip();
     if (moonrise.isActive()) moonrise.skip();
+    if (intentBeat.isActive()) intentBeat.skip();
   }
   if (releaseEdge) {
     audio.releaseWhoosh(releaseHoldMs);
@@ -169,6 +174,7 @@ app.ticker.add((ticker) => {
 
   titleCard.update(dt);
   moonrise.update(dt, worldLayer, moonriseCursorAlpha);
+  intentBeat.update(dt);
   cursorTrail.push(pointer.x, pointer.y);
   ambientLife.update(dt);
 
@@ -176,7 +182,7 @@ app.ticker.add((ticker) => {
     const scene = activeScene;
     tryRecoverOnPressEdge(scene.state, pressEdge);
 
-    const moonriseGate = !moonrise.isActive();
+    const moonriseGate = !moonrise.isActive() && !intentBeat.isActive();
     if (pointer.holding && !scene.state.softDrift.active && moonriseGate) {
       grid.applyPull(
         pointer.x,
@@ -318,6 +324,7 @@ function enterNight(night: NightNumber): void {
   uiLayer.removeChild(titleCard.container);
   uiLayer.addChild(titleCard.container);
   titleCard.show(level.night.lunarPhase);
+  intentBeat.start(night, level);
 
   worldLayer.scale.set(1);
 

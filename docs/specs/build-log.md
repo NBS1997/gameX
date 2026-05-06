@@ -519,6 +519,26 @@ Picking up the deferred-polish backlog from the discoverability pass:
 
 | Item | Status |
 |---|---|
+
+## Closure-sprint cycle 3 — intent beat (P1 #5)
+
+### Cycle 3 — 2026-05-06
+
+- **Built:** `game/src/render/intentBeat.ts` (new, ~120 LOC) + wiring in `game/src/main.ts` (~8 lines added across import, mount, ticker, skip handler, input gate, and enterNight call).
+- **Files touched:** `game/src/render/intentBeat.ts` (new), `game/src/main.ts` (import + 5 wiring sites).
+- **Verification:**
+  1. `npx tsc --noEmit` — exit 0.
+  2. `npm run lint` — exit 0.
+  3. `Test-Path src/render/intentBeat.ts` — True.
+  4. `Select-String -Path src/main.ts -Pattern 'intentBeat' -Quiet` — True.
+- **P3 cuts taken:** None. Spec delivered in full: N1 gate-only (no graphics, input blocked for 1500ms), N2 lantern-centroid ring pulse (scale 1.0→1.15→1.0, alpha 0→0.35→0), N3 east-edge expanding ring (radius 0→200, alpha 0.4→0). Reduce-motion variants for N2/N3 (single static frame, 200ms gate). Within-session re-entry suppression via `seenSet`. Skip-on-press wired alongside `titleCard` and `moonrise` skip. Input gate extended: `moonriseGate` now also blocks while `intentBeat.isActive()`.
+- **Out of scope:** QA feel-test (requires browser session); device validation of ring visuals at world-space coordinates.
+- **Watch-outs:**
+  - The spec referred to the level param as type `Level`; the actual type in `game/src/level/types.ts` is `LevelDef`. Used `LevelDef` throughout — no functional impact, correct type.
+  - `moonriseGate` variable name kept as-is in `main.ts`; its condition now also checks `intentBeat.isActive()`.
+  - N1 fires with `container.visible = false` — pure input gate, no ring drawn. The harbour ring already provides the N1 affordance per spec.
+  - `seenSet` is owned by the closure and persists for the lifetime of the session. Re-entering a night shows nothing (suppressed), matching the acceptance criterion exactly.
+- **Commit:** see `git log`.
 | Per-phase tinted water palette | ✅ landed |
 | Sent-lantern fade on Night 3 | ✅ landed |
 | Held-success camera ease-in beat | ✅ landed |
