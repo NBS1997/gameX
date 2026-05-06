@@ -84,6 +84,33 @@ Select-String -Path src/render/moonrise.ts -Pattern 'prefersReducedMotion' -Quie
 
 **Pass:** the file matches. **Fail:** the file does not — the animation is running unconditionally and is a WCAG 2.2 SC 2.3.3 conformance gap. Forward-log entry from cycle 1 of `/captain` (2026-05-06) names this as the regression check that gated the moonrise reduce-motion fix.
 
+## The held-success dwell-to-savour test
+
+**Run after:** any cycle that touches the goal-met / `postCompleteMs` block in `game/src/main.ts`.
+
+**Why:** the canonical "dwell to savour, tap to advance" reframe from retrospective P1 #4. The 2.5s auto-advance must become a *ceiling* (no-input fallback), not a *floor*; from 1500ms onward, any pointer press advances the night. A press during savour must NOT fire the press-attack audio (the player is signalling "advance," not "engage with the verb").
+
+### Manual feel-test (after a code change to the held-success block)
+
+1. Hard-refresh the page. Play Night 1 to goal-met.
+2. **Test ceiling** — sit completely still after the bell. Confirm the night auto-advances at ~2.5s.
+3. **Test tap-to-advance** — replay Night 1, reach goal-met, wait until the bell finishes (~1.5s), then click anywhere. Confirm the night advances immediately.
+4. **Test savour-minimum** — replay Night 1, reach goal-met, click *before* 1500ms. Confirm the night does NOT advance (the savour minimum protects the bell-and-cream beat).
+5. **Test press-attack suppression** — listen for the press-attack sound during the savour window. Confirm it does NOT fire (the press is signalling advance, not engage).
+
+**Pass:** all four behaviours land cleanly.
+
+### Automatable regression check (code-level)
+
+The QA agent runs this static check from `C:\Dev\gameX\game\`:
+
+```powershell
+# main.ts must declare a SAVOUR_MIN_MS constant and reference it from the goal-met block.
+Select-String -Path src/main.ts -Pattern 'SAVOUR_MIN_MS' -Quiet
+```
+
+**Pass:** match returns True. **Fail:** match returns False — the held-success auto-advance is still acting as a forced cut and is a soft-compulsion drift (retrospective P1 #4; ethics perimeter via habit-formation). The press-attack-suppression gate (step 5 of the manual feel-test) is reviewed by code inspection at the same call-site rather than by static check, since `!wasGoalComplete` already appears unrelatedly at the goal-met edge detection.
+
 ## The clip-render test
 
 **Run after:** day 7 (trailer cut) and day 9 (verification).

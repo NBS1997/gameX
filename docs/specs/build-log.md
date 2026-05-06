@@ -562,3 +562,48 @@ Picking up the deferred-polish backlog from the discoverability pass:
 - **Ethics perimeter:** closes the soft-compulsion drift flagged in retrospective P1 #4 (habit-formation R2). Unconditional forced cut at 2500ms was the violation; player now chooses the moment of advance after the savour minimum protects the bell-and-cream beat.
 - **Verification:** `npx tsc --noEmit` clean; `npm run lint` clean; `Select-String -Path src/main.ts -Pattern 'SAVOUR_MIN_MS' -Quiet` returns True.
 - **Commit:** see `git log`.
+
+### Closure-sprint cycle 2 QA — held-success dwell-to-savour
+
+- **Automatable acceptance: 9/9 criteria passed via code/static checks**
+  1. `npx tsc --noEmit` — exit 0. PASSED.
+  2. `npm run lint` — exit 0. PASSED.
+  3. Cycle-2 regression check — `SAVOUR_MIN_MS` present in `src/main.ts`. PASSED.
+  4. Cycle-1 regression check — `prefersReducedMotion` present in `src/render/moonrise.ts`. PASSED (no regression on moonrise reduce-motion fix).
+  5. Gherkin (1) — bell + harbour cream + 1.5s ease on goal-met: `audio.goalMet()` fires on the `goalNowComplete && !wasGoalComplete` rising edge (line 219); `applyHeldSuccessEase` uses `HELD_SUCCESS_EASE_MS = 1500` (line 260). CONFIRMED.
+  6. Gherkin (2) — tap-to-advance from 1500ms: `savourTap = postCompleteMs >= SAVOUR_MIN_MS && pressEdge` at line 226 gates `finishCurrentNight`. CONFIRMED.
+  7. Gherkin (3) — auto-advance ceiling at 2500ms: `savourCeiling = postCompleteMs >= HELD_SUCCESS_HOLD_MS` at line 225 is the no-input fallback path. CONFIRMED.
+  8. Gherkin (4) — no "advance now" UI string: zero matches for `share`, `wishlist`, `follow`, `streak`, `leaderboard`, `notification` in `src/`. CONFIRMED.
+  9. Press-attack-suppression gate (manual-test step 5): `audio.pressAttack()` is inside `if (pressEdge && !wasGoalComplete)` (lines 160-161). `audio.start()` is outside that gate (lines 157-159) — idempotent audio unlock, correct. CONFIRMED.
+
+- **Ethics-perimeter sweep: clean**
+  - Forbidden analytics imports (`sentry`, `posthog`, `plausible`, `mixpanel`, `gtag`, `googletagmanager`, `analytics`): zero matches.
+  - Network/notification APIs (`fetch(`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `Notification`) in `src/`: zero matches.
+  - `localStorage.setItem` keys: only `neap/save/v2` (in `src/state/save.ts` line 68). Legacy `tide-pull/save/v1` is read-only (getItem only). CLEAN.
+  - Forbidden UI strings (`share`, `wishlist`, `follow`, `streak`, `leaderboard`, `notification`): zero matches.
+  - `package.json` runtime deps: only `pixi.js`. CLEAN.
+
+- **Regressions:** none found. Cycle-1 moonrise reduce-motion fix intact.
+
+- **Browser-required acceptance: 1 set pending human pass**
+  - [ ] Full manual feel-test — "The held-success dwell-to-savour test" steps 1-5 in `docs/specs/feel-test-protocol.md`: ceiling at ~2.5s, tap-to-advance from ~1.5s, savour minimum (no advance before 1500ms), press-attack audio absent during savour window. Requires browser session with audio on.
+
+- **Notes:** The three edits are tight and correct. The `savourTap` / `savourCeiling` split is the right shape — the `postCompleteMs` accumulator is reset to 0 in `enterNight` (line 288), so there is no cross-night state leak. `wasGoalComplete` is also reset in `enterNight` (line 289), confirming the gate cannot stick across a night transition. No concerns beyond the browser feel-test.
+
+- **QA_RESULT: PASSED_WITH_NOTES** *(browser feel-test pending human pass)*
+- **PR_NUMBER: N/A — direct commit 94ef127 on main**
+
+### Closure-sprint cycle 2 Review — held-success dwell-to-savour
+
+- **Verdict:** APPROVED.
+- **Reviewer:** reviewer agent, against `94ef127` on `main`, diff `502a40d..94ef127 -- game/src/main.ts`.
+- **Tech-plan acceptance fit:** P1 #4 delivered exactly as specced. OQ18 N3-only gate correctly absent; deferred to cycle 3 per cycle-2 cluster pick. Build-log entry honest about scope.
+- **Stack discipline:** no `any`; `SAVOUR_MIN_MS` correctly positioned in the held-success constant cluster; `pressEdge && !wasGoalComplete` gate mirrors the established title-card / moonrise skip-on-press shape; `audio.start()` correctly outside the gate; no new runtime dependencies.
+- **State leak:** `enterNight()` resets both `postCompleteMs` and `wasGoalComplete`; `savourCeiling` / `savourTap` are frame-local — no cross-night savour leak possible.
+- **Ethics ban list:** clean. Tap-to-advance is invisible logic; no new UI surface, no advance-prompt text, no skip button. All grep checks pass.
+- **A11y:** reduce-motion path unchanged; `applyHeldSuccessEase` already guards on `prefersReducedMotion()`; no new animations.
+- **Code shape:** `main.ts` stays orchestration-only; named identifiers are clear and match spec terminology.
+- **Remaining gate:** browser feel-test (QA's pending human pass) — not a reviewer blocker, correctly flagged by QA.
+
+- **REVIEW_RESULT: APPROVED**
+- **PR_NUMBER: N/A — direct commit 94ef127 on main**
