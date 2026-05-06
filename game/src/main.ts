@@ -191,11 +191,7 @@ app.ticker.add((ticker) => {
         scene.state.level.night.pullStrength,
         dt,
       );
-      // OQ18: direct cursor-to-receiver attraction is N3-only.
-      // Wedge clause "moon pulls water → water pulls things" — N1 'guide' and
-      // N2 'gather' move via flow-field alone. N3 'send' verb IS the release;
-      // direct pull is the verb-grammar. Retrospective adjudicated this; do not
-      // re-open without re-running the trailer empirical test (P1 #9).
+      // OQ18 (adjudicated): N3 'send' only — N1/N2 move via flow alone; trailer P1 #9 is the empirical re-test.
       if (scene.state.level.night.goal.kind === 'send') {
         applyReceiverAttraction(scene.state, dt);
       }
