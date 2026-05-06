@@ -627,3 +627,58 @@ Picking up the deferred-polish backlog from the discoverability pass:
 
 - **REVIEW_RESULT: APPROVED**
 - **PR_NUMBER: N/A — direct commit 94ef127 on main**
+
+## Closure-sprint cycle 3 — intent beat (per-night affordance pulse)
+
+### Closure-sprint cycle 3 QA — intent beat
+
+- **Automatable acceptance: 19/19 criteria passed via code/static checks**
+
+  Static file checks:
+  1. `npx tsc --noEmit` — exit 0. PASSED.
+  2. `npm run lint` — exit 0. PASSED.
+  3. `Test-Path src/render/intentBeat.ts` — file exists. PASSED.
+  4. `Select-String -Path src/main.ts -Pattern 'intentBeat' -Quiet` — returns True. PASSED.
+  5. Cycle-2 regression — `SAVOUR_MIN_MS` present in `src/main.ts`. PASSED.
+  6. Cycle-1 regression — `prefersReducedMotion` present in `src/render/moonrise.ts`. PASSED.
+
+  Spec-interface checks (intentBeat.ts):
+  7. `container: Container` exposed in return shape (line 133). CONFIRMED.
+  8. `start/update/skip/isActive` signatures match spec interface (lines 11-17, 133). CONFIRMED.
+  9. `seenSet: Set<NightNumber>` for re-entry suppression (line 25); `seenSet.has(night)` gate in `start()` (line 40). CONFIRMED.
+  10. Reduce-motion path draws a single static ring frame then exits after `REDUCE_MOTION_DURATION_MS = 200` — N2 lines 89-95, N3 lines 111-117. CONFIRMED.
+  11. N1 path is gate-only: `container.visible = false`, no ring drawn, `durationMs = N1_DURATION_MS = 1500` (lines 52-56). CONFIRMED.
+  12. N2 centroid computed via `level.night.spawns.filter(s => s.type === 'lantern')` with sum/divide (lines 59-65); fallback `(960, 540)` if no lanterns. CONFIRMED.
+  13. N3 origin is `centroid = { x: 1920, y: 540 }` (line 73). CONFIRMED.
+  14. `RING_COLOUR = 0xa8b5cc` (line 9). CONFIRMED.
+
+  Main wiring checks:
+  15. `intentBeat.container` mounted on `worldLayer` at boot (line 92 of main.ts). CONFIRMED.
+  16. `intentBeat.start(night, level)` called on line 327, immediately after `titleCard.show()` on line 326 in `enterNight()`. Order correct. CONFIRMED.
+  17. `intentBeat.skip()` is inside `if (pressEdge && !wasGoalComplete)` (main.ts lines 164-169): a press during the savour window does NOT trigger a skip. CONFIRMED.
+  18. `intentBeat.update(dt)` called in per-frame ticker (main.ts line 177). CONFIRMED.
+  19. Input gate: `const moonriseGate = !moonrise.isActive() && !intentBeat.isActive()` (main.ts line 185) applied at line 186 before physics/verb updates. CONFIRMED.
+
+- **Ethics-perimeter sweep: clean**
+  - Forbidden analytics imports (`sentry`, `posthog`, `plausible`, `mixpanel`, `gtag`, `googletagmanager`, `analytics`): zero matches in `src/`.
+  - Network/notification APIs (`fetch(`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `Notification`): zero matches in `src/`.
+  - `localStorage.setItem` keys: one match — `src/state/save.ts` line 68, key is `SAVE_KEY = 'neap/save/v2'`. No new keys introduced by this commit. CLEAN.
+  - Forbidden UI strings (`share`, `wishlist`, `follow`, `streak`, `leaderboard`, `notification`): zero matches in `src/`.
+  - `package.json` runtime deps: `["pixi.js"]` only. CLEAN.
+
+- **Regressions: none found**
+  - Cycle-2 `SAVOUR_MIN_MS` / savour-tap / savour-ceiling block intact; `wasGoalComplete` and `postCompleteMs` both reset in `enterNight()` (main.ts lines 294-295) — no cross-night savour leak possible.
+  - Cycle-1 moonrise reduce-motion fix intact: `prefersReducedMotion()` checked at `moonrise.ts` line 35 inside `update()`.
+
+- **Notes:**
+  - `intentBeat.container` is on `worldLayer` (not `uiLayer`), so it moves with the world during the moonrise camera lift. Intentional — the ring is diegetic (marks the lantern centroid for N2, east edge for N3).
+  - N1 gate-only path satisfies the spec: the harbour ring's natural breathing IS the N1 affordance; no separate ring fires.
+  - N2 centroid is dynamic from level spawn data. The spec note of `(~880, 435)` is a runtime approximation; the code derives it from actual spawns as specified.
+  - `seenSet` persists for the session lifetime inside the `createIntentBeat()` closure. It is NOT written to `localStorage` — correct, spec requires within-session suppression only.
+  - The `intentBeat.skip()` call inside `pressEdge && !wasGoalComplete` is correct. A press during the savour window (where `wasGoalComplete` is true) does not reach `skip()`. This is safe because the intent beat cannot be active during the savour window: the beat plays before input-enable (before goal-met is even possible), and the savour window only opens after the goal is met.
+
+- **Browser-required acceptance: 1 set pending human pass**
+  - [ ] Full manual feel-test — "The intent-beat test" steps 1-7 in `docs/specs/feel-test-protocol.md`: N1 gate-only (no ring fires, input briefly gated ~1.5s); N2 lantern ring at centroid ~(880, 435) with 600ms triangle-wave ease, alpha 0→0.35→0; N3 foam-stop ring expanding from (1920, 540), radius 0→200 over ~800ms, alpha 0.4→0; skip-on-press cancels beat and enables input immediately; re-entry suppression (N2 ring does not fire on second entry within same session); reduce-motion (N2/N3 single static ring at peak alpha ~200ms, no expansion). Requires browser session with sound on.
+
+- **QA_RESULT: PASSED_WITH_NOTES** *(browser feel-test pending human pass)*
+- **PR_NUMBER: N/A — direct commit 5c24258 on main**
