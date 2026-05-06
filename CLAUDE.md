@@ -19,9 +19,11 @@ Each phase produces a committed artefact in `docs/specs/`. Phases 0 → 1 → 2 
 | 2 — Tech plan | `tech-lead` (via `/tech-plan`) | design spec | `docs/specs/YYYY-MM-DD-tech-plan.md` |
 | 2.5 — Pipeline adapter | orchestrator (one-time) | tech-plan | `docs/specs/2026-05-06-build-pipeline-adapter.md` |
 | 3 — Build | `dev-agent` + `qa-agent` + `reviewer` (per tech-plan day) | tech-plan day blocks | committed code on `main` + `docs/specs/build-log.md` |
-| 4 — Slice handoff | user (post-stranger-test, day 10) | working slice | next-step decision (continue / ship / deprecate) |
+| 4 — Forward loop | 8 specialists + superpowers stacks (via `/captain`) | built slice + all Phase 0–3 artefacts | ship-ready summary OR pivot recommendation, plus `docs/specs/forward-log.md` |
 
 The Phase-3 loop is `day block → dev → QA → reviewer → next day block`. No PRs, no remote, no merge. See `docs/specs/2026-05-06-build-pipeline-adapter.md` §Workflow shape for the loop in detail.
+
+The Phase-4 loop is autonomous and self-paced via `ScheduleWakeup`. Each cycle: read state → eight-specialist parallel retro → pick one next-best step (`BUG_POLISH` / `NEW_FEATURE` / `SHIP_READY` / `PIVOT`) → run the matching superpowers stack → verify → schedule next cycle. Halts only on ship-ready quorum, pivot trigger, or user `/halt`. By design there is no cycle cap.
 
 ## Agent roster
 
@@ -49,6 +51,7 @@ Retired: `planner-triage` (PR-pipeline regression triage; meaningless in solo-lo
 | `/concept-pitch` | Generate game premises, user picks one | 0 |
 | `/creative-council` | Multi-round critique, produces design spec | 1 |
 | `/tech-plan` | Produces implementation plan from design spec | 2 |
+| `/captain` | Post-build ralph loop — retro, pick next-best step, execute via superpowers stack, self-schedule. Canonical invocation: `/loop /captain`. | 4 |
 
 Phase 3 has no slash command — agents are dispatched directly per the tech-plan day blocks.
 
@@ -62,7 +65,8 @@ Phase 3 has no slash command — agents are dispatched directly per the tech-pla
 - `docs/specs/2026-05-06-build-pipeline-adapter.md` — Phase-2.5 plan that adapted dev/qa/reviewer for greenfield local work (frozen).
 - `docs/specs/conventions.md` — stack rules + ethics ban list as code rules (read every dev/reviewer run).
 - `docs/specs/feel-test-protocol.md` — QA runbook (read every QA run).
-- `docs/specs/build-log.md` — append-only working log; the only spec file the agents write to.
+- `docs/specs/build-log.md` — append-only working log for Phase 3.
+- `docs/specs/forward-log.md` — append-only working log for Phase 4. Created by `/captain` on its first cycle.
 - `docs/specs/motion-and-colour-bible.md` — authored by dev-agent on day 2 of Phase 3.
 - `.claude/agents/<name>.md` — agent system prompts.
 - `.claude/commands/<name>.md` — orchestrator prompts for slash commands.
@@ -82,7 +86,6 @@ These conventions came from the prior project this scaffold was based on and hav
 
 - **GitHub integration.** No remote, no `gh`, no MCP server for GitHub. The slice runs locally. If the game ships, a remote gets set up at the slice-handoff step.
 - **Hooks at `.claude/hooks/`.** None configured. Conventions are enforced at review time by the `reviewer` agent, not at write time.
-- **Phase 4 / post-slice work** — to be decided at the day-10 stranger-test checkpoint.
 
 ## What this CLAUDE.md is NOT
 
@@ -98,4 +101,6 @@ If you're a fresh Claude session opening this repo, the answer to "what should I
 - **Tech-plan, no adapter, no code** — Phase 2.5 next. Orchestrator writes the build-pipeline adapter.
 - **Adapter + tech-plan, no `game/` directory** — Phase 3 day 1: dispatch the dev-agent against tech-plan day 1.
 - **`game/` directory exists with code** — Phase 3 in progress. Read `docs/specs/build-log.md` to find the latest day; dispatch the next agent in the loop.
-- **All ten days complete** — Phase 4 / slice-handoff checkpoint.
+- **All ten days complete, no `forward-log.md`** — Phase 4 ready. The user runs `/loop /captain` to start the ralph loop.
+- **`forward-log.md` exists, no halt summary** — Phase 4 in progress. Read `docs/specs/forward-log.md` to find the latest cycle; the loop is either running or has been `/halt`-ed and is awaiting re-invocation.
+- **`forward-log.md` plus a `*-ship-ready-summary.md` or `*-pivot-recommendation.md`** — Phase 4 has halted. Read the summary to know whether the slice is ready to ship or needs a pivot decision from the user.
