@@ -38,6 +38,7 @@ The Phase-3 loop is `day block → dev → QA → reviewer → next day block`. 
 | `dev-agent` | Implements tech-plan day blocks | 3 | sonnet |
 | `qa-agent` | Verifies day acceptance, runs feel-test protocol | 3 | sonnet |
 | `reviewer` | Reviews diffs against day blocks + conventions | 3 | sonnet |
+| `documentation-writer` | Player- and project-facing docs (README, HOW-TO-PLAY, in-game copy) | 3+ | sonnet |
 
 Retired: `planner-triage` (PR-pipeline regression triage; meaningless in solo-local-greenfield mode). Re-add when there's a remote and multi-author work.
 

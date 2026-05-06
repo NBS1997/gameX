@@ -409,3 +409,23 @@ Boat-fill and harbour-rim-idle are the closest calls — both clear 3:1 but not 
 - **Built:** addressed two of the three reviewer polish-backlog items (audio bed-gain phase-awareness; `?night=N` dev-only comment). The third (FluidGrid private fields) deferred to post-slice polish per its future-trap classification.
 - **Files touched:** `game/src/audio/manager.ts`, `game/src/main.ts`.
 - **Commit:** see `git log`.
+
+### Post-slice fix — 2026-05-06 — height-pump runaway
+- **User report:** "if i click to long the Mapp is consumed."
+- **Cause:** `applyPull` in `game/src/sim/fluid.ts` added `HEIGHT_PUMP * pullStrength * dt * falloff` to `h` each frame unconditionally. Over sustained holds the height climbed past the foam stop (1.5) and saturated the entire grid to the brightest palette colour, consuming the bay visually.
+- **Fix:** room-scaled pump. Multiplied the pump term by `Math.max(0, HEIGHT_CAP - h)` so growth tapers as height approaches `HEIGHT_CAP = 1.55`. Short pulls feel identical; sustained holds top out at foam locally and stay there.
+- **Files touched:** `game/src/config.ts` (added `HEIGHT_CAP = 1.55`), `game/src/sim/fluid.ts`.
+- **Commit:** `7723d1c`.
+
+## Docs
+
+### README.md + docs/HOW-TO-PLAY.md — 2026-05-06
+- **Built:** repo-root README and a single-page HOW-TO-PLAY for the player. README points at the design artefacts and run instructions; HOW-TO-PLAY explains the controls, the three nights' verbs (without spoiling Night 3), soft-drift, free-pick after first playthrough, the ban list as plain language, and the dev-only `?night=N` quick-jump.
+- **Reason:** user feedback after first play — "I need more instructions on how to play." Discoverability-only design wasn't carrying.
+- **Files touched:** `README.md` (new), `docs/HOW-TO-PLAY.md` (new).
+- **Commit:** see `git log`.
+
+### `documentation-writer` agent — 2026-05-06
+- **Built:** new `.claude/agents/documentation-writer.md`. Player- and project-facing docs (README, HOW-TO-PLAY, in-game copy, changelogs). Australian English, cosy tone, tight scope. Reads the design spec / tech plan / motion bible / build-log; doesn't write to them. CLAUDE.md roster updated.
+- **Note:** the harness caches agent definitions at session start, so the new agent isn't dispatchable in this session. Available from next session onward. The README + HOW-TO-PLAY in this commit were authored under the agent's prompt directly because of that cache.
+- **Commit:** see `git log`.
