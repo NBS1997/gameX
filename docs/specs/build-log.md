@@ -429,3 +429,19 @@ Boat-fill and harbour-rim-idle are the closest calls — both clear 3:1 but not 
 - **Built:** new `.claude/agents/documentation-writer.md`. Player- and project-facing docs (README, HOW-TO-PLAY, in-game copy, changelogs). Australian English, cosy tone, tight scope. Reads the design spec / tech plan / motion bible / build-log; doesn't write to them. CLAUDE.md roster updated.
 - **Note:** the harness caches agent definitions at session start, so the new agent isn't dispatchable in this session. Available from next session onward. The README + HOW-TO-PLAY in this commit were authored under the agent's prompt directly because of that cache.
 - **Commit:** see `git log`.
+
+### Discoverability + polish pass — 2026-05-06
+- **User report:** "needs a bit more explanation and building out."
+- **Built:**
+  - **Cursor pull-radius ring** is now drawn around the moon at every phase (faint at idle, brighter on hold). Per the motion bible: 80px / 140px / 110px for waxing / full / waning. Players can SEE the moon's reach at a glance.
+  - **Cursor halo growing with hold** — `setHoldStrength(t)` ramps the ring's alpha from 0.18 → 0.63 over the first 400ms of hold. Disc also scales up gently by 6%. Visible "I'm pulling" feedback at the cursor.
+  - **Pulsing harbour ring on Night 1** — when not yet engaged, the harbour ring breathes between alpha 0.22 and 0.58 at 0.6 Hz. Stops pulsing once the boat enters the ring (highlight) or when the goal completes.
+  - **Boat bob + rotation** — `entities.update(dt)` adds a 1.4 Hz vertical bob (±1.6px) and gentle 1 Hz rotation oscillation (±0.04 rad). Receivers feel alive even before the player engages.
+  - **Lantern shimmer** — same update path adds a halo-alpha pulse on lanterns at 1.6 Hz so they glow softly while drifting.
+  - **Picker hover state** — selectable glyphs scale up to 1.1× on `pointerover` and back to 1.0× on `pointerout`. Picker now reads as interactive.
+  - **Moonrise opening beat** — new `render/moonrise.ts`. First launch (no completed nights) plays an 8s ease-out: cursor alpha 0 → 1, world `position.y` tweens (gentle "y-offset lift" framing). Return launches play an abridged 1.8s version. Skippable on any input. Disabled when the `?night=N` URL override is used. Verb updates and `applyPull` are gated off until the moonrise finishes — it's a watch-only intro beat.
+  - **Soft-drift refactor** — `updateSoftDrift` no longer touches `cursor.alpha` directly; it only mutates state and applies camera scale. Main.ts composes cursor alpha from `state.softDrift.cursorAlpha * moonriseAlpha`, so the moonrise fade-in and a soft-drift dim no longer fight each other.
+- **Files touched:** `game/src/render/cursor.ts`, `game/src/render/harbour.ts`, `game/src/render/entities.ts`, `game/src/render/moonrise.ts` (new), `game/src/scenes/nightPicker.ts`, `game/src/scenes/softDrift.ts`, `game/src/main.ts`.
+- **Notes for player:** with the moonrise, first-launch flow is now: 3s title card + 8s moonrise ease-in + verb begins. On return launches: 3s title card + 1.8s abridged moonrise + verb. Pressing during either skips them.
+- **Still-deferred (post-slice polish):** per-phase tinted water palette; sent-lantern fade on Night 3 crossing; held-success camera ease-in beat; ambient creatures (gulls, distant whale) in picker idle background.
+- **Commit:** see `git log`.

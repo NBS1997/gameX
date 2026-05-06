@@ -7,6 +7,7 @@ import type { MetaState } from '../state/meta.ts';
 const ACTIVE_ALPHA = 1.0;
 const INACTIVE_ALPHA = 0.25;
 const SLOT_SPACING = 360;
+const HOVER_SCALE = 1.1;
 
 const NIGHT_PHASES: Record<NightNumber, LunarPhase> = {
   1: 'waxing-crescent',
@@ -31,8 +32,9 @@ export function createNightPicker(
   ([1, 2, 3] as NightNumber[]).forEach((night, idx) => {
     const slot = new Container();
     slot.position.set((idx - 1) * SLOT_SPACING, 0);
+    slot.pivot.set(0, 0);
     const glyph = makeCursorForPhase(NIGHT_PHASES[night]);
-    slot.addChild(glyph);
+    slot.addChild(glyph.container);
     container.addChild(slot);
     slots.push({ container: slot, night });
   });
@@ -43,9 +45,12 @@ export function createNightPicker(
       slot.container.alpha = isSelectable ? ACTIVE_ALPHA : INACTIVE_ALPHA;
       slot.container.eventMode = isSelectable ? 'static' : 'none';
       slot.container.cursor = isSelectable ? 'pointer' : 'default';
+      slot.container.scale.set(1);
       slot.container.removeAllListeners();
       if (isSelectable) {
         slot.container.on('pointertap', () => onSelect(slot.night));
+        slot.container.on('pointerover', () => slot.container.scale.set(HOVER_SCALE));
+        slot.container.on('pointerout', () => slot.container.scale.set(1));
       }
     }
   };

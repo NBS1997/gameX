@@ -1,4 +1,4 @@
-import type { Container, Graphics } from 'pixi.js';
+import type { Container } from 'pixi.js';
 import { prefersReducedMotion } from '../a11y/reduceMotion.ts';
 import {
   recoverFromSoftDrift,
@@ -14,7 +14,6 @@ const RECOVER_ALPHA_RATE = 5;
 export function updateSoftDrift(
   state: GameState,
   worldLayer: Container,
-  cursor: Graphics,
   dt: number,
 ): void {
   const drift = state.softDrift;
@@ -43,7 +42,6 @@ export function updateSoftDrift(
   }
 
   worldLayer.scale.set(drift.cameraScale);
-  cursor.alpha = drift.cursorAlpha;
 }
 
 export function tryRecoverOnPressEdge(

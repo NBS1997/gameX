@@ -6,47 +6,89 @@ const BOAT_RIM = 0xd6b88a;
 const LANTERN_FILL = 0xfff4d6;
 const LANTERN_HALO = 0xffae5a;
 
+interface EntityVisual {
+  container: Container;
+  body: Graphics;
+  glow?: Graphics;
+  bobSeed: number;
+  type: 'boat' | 'lantern';
+}
+
 export interface EntityRenderer {
   container: Container;
   sync(receivers: readonly ReceiverInstance[]): void;
+  update(dt: number): void;
 }
 
 export function createEntityRenderer(
   initial: readonly ReceiverInstance[],
 ): EntityRenderer {
   const container = new Container();
-  const graphics = new Map<string, Graphics>();
+  const visuals = new Map<string, EntityVisual>();
 
-  for (const receiver of initial) {
-    const g = makeReceiverGraphic(receiver);
-    g.position.set(receiver.position.x, receiver.position.y);
-    graphics.set(receiver.id, g);
-    container.addChild(g);
-  }
+  initial.forEach((receiver, idx) => {
+    const visual = makeVisual(receiver, idx);
+    visual.container.position.set(receiver.position.x, receiver.position.y);
+    visuals.set(receiver.id, visual);
+    container.addChild(visual.container);
+  });
+
+  let elapsed = 0;
+  let positions = new Map<string, { x: number; y: number }>();
 
   const sync = (receivers: readonly ReceiverInstance[]): void => {
-    for (const receiver of receivers) {
-      const g = graphics.get(receiver.id);
-      if (g) {
-        g.position.set(receiver.position.x, receiver.position.y);
+    positions = new Map(
+      receivers.map((r) => [r.id, { x: r.position.x, y: r.position.y }]),
+    );
+  };
+
+  const update = (dt: number): void => {
+    elapsed += dt;
+    for (const [id, pos] of positions) {
+      const visual = visuals.get(id);
+      if (!visual) continue;
+      const bobY = Math.sin(elapsed * 1.4 + visual.bobSeed) * 1.6;
+      visual.container.position.set(pos.x, pos.y + bobY);
+      if (visual.type === 'boat') {
+        visual.body.rotation = Math.sin(elapsed * 1.0 + visual.bobSeed) * 0.04;
+      } else if (visual.type === 'lantern' && visual.glow) {
+        const pulse = 0.5 + 0.5 * Math.sin(elapsed * 1.6 + visual.bobSeed);
+        visual.glow.alpha = 0.45 + 0.35 * pulse;
       }
     }
   };
 
-  return { container, sync };
+  return { container, sync, update };
 }
 
-function makeReceiverGraphic(receiver: ReceiverInstance): Graphics {
-  const g = new Graphics();
+function makeVisual(receiver: ReceiverInstance, idx: number): EntityVisual {
+  const c = new Container();
+  const body = new Graphics();
+  let glow: Graphics | undefined;
+
   switch (receiver.type) {
     case 'boat':
-      g.ellipse(0, 0, 28, 12)
+      body
+        .ellipse(0, 0, 28, 12)
         .fill(BOAT_FILL)
         .stroke({ width: 2, color: BOAT_RIM });
+      c.addChild(body);
       break;
-    case 'lantern':
-      g.circle(0, 0, 10).fill(LANTERN_HALO).circle(0, 0, 6).fill(LANTERN_FILL);
+    case 'lantern': {
+      glow = new Graphics().circle(0, 0, 14).fill(LANTERN_HALO);
+      glow.alpha = 0.5;
+      c.addChild(glow);
+      body.circle(0, 0, 8).fill(LANTERN_HALO).circle(0, 0, 5).fill(LANTERN_FILL);
+      c.addChild(body);
       break;
+    }
   }
-  return g;
+
+  return {
+    container: c,
+    body,
+    glow,
+    bobSeed: idx * 0.7,
+    type: receiver.type,
+  };
 }

@@ -13,11 +13,15 @@ import {
 import { createPointerState } from './input/pointer.ts';
 import { loadLevel } from './level/loader.ts';
 import type { NightNumber } from './level/types.ts';
-import { makeCursorForPhase } from './render/cursor.ts';
+import { makeCursorForPhase, type MoonCursor } from './render/cursor.ts';
 import { createCursorTrail } from './render/cursorTrail.ts';
 import { createEntityRenderer } from './render/entities.ts';
 import { renderGhosts } from './render/ghosts.ts';
 import { createHarbourRenderer } from './render/harbour.ts';
+import {
+  createMoonrise,
+  rememberWorldLayerBaseY,
+} from './render/moonrise.ts';
 import { createTitleCard } from './render/titleCard.ts';
 import { createWaterRenderer } from './render/water.ts';
 import { createNightPicker } from './scenes/nightPicker.ts';
@@ -38,6 +42,7 @@ import { updateSend } from './verbs/settle.ts';
 import './style.css';
 
 const HELD_SUCCESS_HOLD_MS = 2500;
+const HOLD_RAMP_MS = 400;
 
 document.documentElement.style.setProperty(
   '--letterbox-colour',
@@ -58,6 +63,7 @@ await app.init({
 document.body.appendChild(app.canvas);
 
 const meta = createMetaState(loadSave());
+const isFirstLaunch = meta.completedNights.size === 0 && !meta.freeReentry;
 
 const worldLayer = new Container();
 const uiLayer = new Container();
@@ -66,6 +72,7 @@ app.stage.addChild(uiLayer);
 
 worldLayer.pivot.set(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2);
 worldLayer.position.set(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2);
+rememberWorldLayerBaseY(worldLayer);
 
 const grid = new FluidGrid();
 const water = createWaterRenderer(grid);
@@ -77,8 +84,8 @@ worldLayer.addChild(ghostLayer);
 let activeScene: ActiveScene = { kind: 'none' };
 const cursorTrail = createCursorTrail();
 uiLayer.addChild(cursorTrail.container);
-let cursor = makeCursorForPhase('waxing-crescent');
-uiLayer.addChild(cursor);
+let cursor: MoonCursor = makeCursorForPhase('waxing-crescent');
+uiLayer.addChild(cursor.container);
 
 const titleCard = createTitleCard();
 uiLayer.addChild(titleCard.container);
@@ -95,6 +102,9 @@ const picker = createNightPicker((night) => enterNight(night));
 uiLayer.addChild(picker.container);
 picker.setMeta(meta);
 picker.setVisible(false);
+
+const moonrise = createMoonrise();
+const moonriseCursorAlpha = { value: 1 };
 
 let wasHolding = false;
 let wasGoalComplete = false;
@@ -121,11 +131,13 @@ const overrideNight: NightNumber | null =
 
 if (overrideNight) {
   enterNight(overrideNight);
+  moonrise.start(false);
 } else if (meta.freeReentry) {
   showPicker();
 } else {
   const next = nextLinearNight(meta) ?? 1;
   enterNight(next);
+  moonrise.start(isFirstLaunch);
 }
 
 app.ticker.add((ticker) => {
@@ -139,6 +151,7 @@ app.ticker.add((ticker) => {
   if (pressEdge) {
     audio.pressAttack();
     if (titleCard.isActive()) titleCard.skip();
+    if (moonrise.isActive()) moonrise.skip();
   }
   if (releaseEdge) {
     audio.releaseWhoosh(releaseHoldMs);
@@ -146,13 +159,15 @@ app.ticker.add((ticker) => {
   }
 
   titleCard.update(dt);
+  moonrise.update(dt, worldLayer, moonriseCursorAlpha);
   cursorTrail.push(pointer.x, pointer.y);
 
   if (activeScene.kind === 'night') {
     const scene = activeScene;
     tryRecoverOnPressEdge(scene.state, pressEdge);
 
-    if (pointer.holding && !scene.state.softDrift.active) {
+    const moonriseGate = !moonrise.isActive();
+    if (pointer.holding && !scene.state.softDrift.active && moonriseGate) {
       grid.applyPull(
         pointer.x,
         pointer.y,
@@ -167,22 +182,26 @@ app.ticker.add((ticker) => {
     }
 
     grid.step(dt);
-    switch (scene.state.level.night.goal.kind) {
-      case 'guide':
-        updateGuide(scene.state, grid, dt);
-        break;
-      case 'gather':
-        updateGather(scene.state, grid, dt);
-        break;
-      case 'send':
-        updateSend(scene.state, grid, dt);
-        break;
+    if (moonriseGate) {
+      switch (scene.state.level.night.goal.kind) {
+        case 'guide':
+          updateGuide(scene.state, grid, dt);
+          break;
+        case 'gather':
+          updateGather(scene.state, grid, dt);
+          break;
+        case 'send':
+          updateSend(scene.state, grid, dt);
+          break;
+      }
     }
 
     water.update();
     scene.entities.sync(scene.state.receivers);
+    scene.entities.update(dt);
     scene.harbour.sync(scene.state);
-    updateSoftDrift(scene.state, worldLayer, cursor, dt);
+    scene.harbour.update(dt, scene.state);
+    updateSoftDrift(scene.state, worldLayer, dt);
 
     const goalNowComplete = isGoalComplete(scene.state);
     if (goalNowComplete && !wasGoalComplete) {
@@ -211,7 +230,13 @@ app.ticker.add((ticker) => {
     water.update();
   }
 
-  cursor.position.set(pointer.x, pointer.y);
+  const holdT = Math.min(1, pointer.holdMs / HOLD_RAMP_MS);
+  cursor.setHoldStrength(pointer.holding ? holdT : 0);
+
+  const driftAlpha =
+    activeScene.kind === 'night' ? activeScene.state.softDrift.cursorAlpha : 1;
+  cursor.container.alpha = driftAlpha * moonriseCursorAlpha.value;
+  cursor.container.position.set(pointer.x, pointer.y);
   wasHolding = pointer.holding;
 });
 
@@ -239,9 +264,9 @@ function enterNight(night: NightNumber): void {
   const entities = createEntityRenderer(state.receivers);
   worldLayer.addChild(entities.container);
 
-  uiLayer.removeChild(cursor);
+  uiLayer.removeChild(cursor.container);
   cursor = makeCursorForPhase(level.night.lunarPhase);
-  uiLayer.addChild(cursor);
+  uiLayer.addChild(cursor.container);
   uiLayer.addChild(picker.container);
 
   if (audio.started) audio.setPhase(level.night.lunarPhase);
