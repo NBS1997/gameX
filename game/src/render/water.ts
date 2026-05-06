@@ -2,14 +2,24 @@ import { Sprite, Texture } from 'pixi.js';
 import {
   LOGICAL_HEIGHT,
   LOGICAL_WIDTH,
-  WATER_PALETTE,
+  WATER_PALETTES,
   WATER_STOPS,
 } from '../config.ts';
+import type { LunarPhase } from '../level/types.ts';
 import { FluidGrid } from '../sim/fluid.ts';
+
+interface RGB {
+  r: number;
+  g: number;
+  b: number;
+}
+
+const PALETTE_LERP_RATE = 1.5;
 
 export interface WaterRenderer {
   sprite: Sprite;
-  update(): void;
+  update(dt: number): void;
+  setPhase(phase: LunarPhase): void;
 }
 
 export function createWaterRenderer(grid: FluidGrid): WaterRenderer {
@@ -30,11 +40,27 @@ export function createWaterRenderer(grid: FluidGrid): WaterRenderer {
   sprite.width = LOGICAL_WIDTH;
   sprite.height = LOGICAL_HEIGHT;
 
-  const update = (): void => {
+  // Active palette is interpolated toward the target on phase change.
+  const active: RGB[] = WATER_PALETTES['waxing-crescent'].map((c) => ({ ...c }));
+  let target: readonly RGB[] = WATER_PALETTES['waxing-crescent'];
+
+  const setPhase = (phase: LunarPhase): void => {
+    target = WATER_PALETTES[phase];
+  };
+
+  const update = (dt: number): void => {
+    const blend = Math.min(1, PALETTE_LERP_RATE * dt);
+    for (let i = 0; i < active.length; i++) {
+      active[i].r += (target[i].r - active[i].r) * blend;
+      active[i].g += (target[i].g - active[i].g) * blend;
+      active[i].b += (target[i].b - active[i].b) * blend;
+    }
+
+    const heights = grid.heights;
     const cells = grid.width * grid.height;
     for (let i = 0; i < cells; i++) {
-      const h = grid.h[i];
-      const colour = sampleColour(h);
+      const h = heights[i];
+      const colour = sampleColour(h, active);
       const off = i * 4;
       data[off] = colour.r;
       data[off + 1] = colour.g;
@@ -45,16 +71,15 @@ export function createWaterRenderer(grid: FluidGrid): WaterRenderer {
     texture.source.update();
   };
 
-  return { sprite, update };
+  return { sprite, update, setPhase };
 }
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
-function sampleColour(h: number): { r: number; g: number; b: number } {
+function sampleColour(h: number, palette: RGB[]): RGB {
   const stops = WATER_STOPS;
-  const palette = WATER_PALETTE;
   if (h <= stops[0]) return palette[0];
   if (h >= stops[stops.length - 1]) return palette[stops.length - 1];
 

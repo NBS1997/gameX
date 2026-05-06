@@ -9,10 +9,13 @@ import {
   LETTERBOX_COLOUR,
   LOGICAL_HEIGHT,
   LOGICAL_WIDTH,
+  RECEIVER_DIRECT_PULL,
+  RECEIVER_PULL_RADIUS_MULTIPLIER,
 } from './config.ts';
 import { createPointerState } from './input/pointer.ts';
 import { loadLevel } from './level/loader.ts';
 import type { NightNumber } from './level/types.ts';
+import { createAmbientLife } from './render/ambientLife.ts';
 import { makeCursorForPhase, type MoonCursor } from './render/cursor.ts';
 import { createCursorTrail } from './render/cursorTrail.ts';
 import { createEntityRenderer } from './render/entities.ts';
@@ -42,6 +45,8 @@ import { updateSend } from './verbs/settle.ts';
 import './style.css';
 
 const HELD_SUCCESS_HOLD_MS = 2500;
+const HELD_SUCCESS_EASE_MS = 1500;
+const HELD_SUCCESS_TARGET_SCALE = 1.12;
 const HOLD_RAMP_MS = 400;
 
 document.documentElement.style.setProperty(
@@ -80,6 +85,9 @@ worldLayer.addChild(water.sprite);
 
 const ghostLayer = new Container();
 worldLayer.addChild(ghostLayer);
+
+const ambientLife = createAmbientLife();
+worldLayer.addChild(ambientLife.container);
 
 let activeScene: ActiveScene = { kind: 'none' };
 const cursorTrail = createCursorTrail();
@@ -161,6 +169,7 @@ app.ticker.add((ticker) => {
   titleCard.update(dt);
   moonrise.update(dt, worldLayer, moonriseCursorAlpha);
   cursorTrail.push(pointer.x, pointer.y);
+  ambientLife.update(dt);
 
   if (activeScene.kind === 'night') {
     const scene = activeScene;
@@ -175,6 +184,7 @@ app.ticker.add((ticker) => {
         scene.state.level.night.pullStrength,
         dt,
       );
+      applyReceiverAttraction(scene.state, dt);
       pointer.holdMs += ticker.deltaMS;
       releaseHoldMs = pointer.holdMs;
     } else if (!pointer.holding) {
@@ -196,7 +206,7 @@ app.ticker.add((ticker) => {
       }
     }
 
-    water.update();
+    water.update(dt);
     scene.entities.sync(scene.state.receivers);
     scene.entities.update(dt);
     scene.harbour.sync(scene.state);
@@ -210,7 +220,9 @@ app.ticker.add((ticker) => {
     }
     if (goalNowComplete) {
       postCompleteMs += ticker.deltaMS;
+      applyHeldSuccessEase(postCompleteMs);
       if (postCompleteMs >= HELD_SUCCESS_HOLD_MS) {
+        worldLayer.scale.set(scene.state.softDrift.cameraScale);
         finishCurrentNight(scene);
       }
     }
@@ -227,7 +239,7 @@ app.ticker.add((ticker) => {
     wasSoftDriftActive = scene.state.softDrift.active;
   } else {
     grid.step(dt);
-    water.update();
+    water.update(dt);
   }
 
   const holdT = Math.min(1, pointer.holdMs / HOLD_RAMP_MS);
@@ -239,6 +251,34 @@ app.ticker.add((ticker) => {
   cursor.container.position.set(pointer.x, pointer.y);
   wasHolding = pointer.holding;
 });
+
+function applyHeldSuccessEase(elapsedMs: number): void {
+  if (prefersReducedMotion()) return;
+  const t = Math.min(1, elapsedMs / HELD_SUCCESS_EASE_MS);
+  const eased = 1 - Math.pow(1 - t, 3);
+  const targetScale = 1 + (HELD_SUCCESS_TARGET_SCALE - 1) * eased;
+  worldLayer.scale.set(targetScale);
+}
+
+function applyReceiverAttraction(state: GameState, dt: number): void {
+  const range =
+    state.level.night.pullRadius * RECEIVER_PULL_RADIUS_MULTIPLIER;
+  const rangeSq = range * range;
+  for (const r of state.receivers) {
+    if (r.sent) continue;
+    const dx = pointer.x - r.position.x;
+    const dy = pointer.y - r.position.y;
+    const distSq = dx * dx + dy * dy;
+    if (distSq > rangeSq) continue;
+    const dist = Math.sqrt(distSq);
+    if (dist < 0.5) continue;
+    const falloff = 1 - dist / range;
+    const force =
+      state.level.night.pullStrength * RECEIVER_DIRECT_PULL * falloff * dt;
+    r.velocity.x += (dx / dist) * force;
+    r.velocity.y += (dy / dist) * force;
+  }
+}
 
 function enterNight(night: NightNumber): void {
   picker.setVisible(false);
@@ -270,10 +310,13 @@ function enterNight(night: NightNumber): void {
   uiLayer.addChild(picker.container);
 
   if (audio.started) audio.setPhase(level.night.lunarPhase);
+  water.setPhase(level.night.lunarPhase);
 
   uiLayer.removeChild(titleCard.container);
   uiLayer.addChild(titleCard.container);
   titleCard.show(level.night.lunarPhase);
+
+  worldLayer.scale.set(1);
 
   activeScene = { kind: 'night', state, entities, harbour };
 }
@@ -286,6 +329,7 @@ function showPicker(): void {
   ghostLayer.removeChildren();
   picker.setMeta(meta);
   picker.setVisible(true);
+  worldLayer.scale.set(1);
   activeScene = { kind: 'picker' };
 }
 

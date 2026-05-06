@@ -430,8 +430,24 @@ Boat-fill and harbour-rim-idle are the closest calls — both clear 3:1 but not 
 - **Note:** the harness caches agent definitions at session start, so the new agent isn't dispatchable in this session. Available from next session onward. The README + HOW-TO-PLAY in this commit were authored under the agent's prompt directly because of that cache.
 - **Commit:** see `git log`.
 
-### Discoverability + polish pass — 2026-05-06
-- **User report:** "needs a bit more explanation and building out."
+### All-deferred polish pass + sim retune — 2026-05-06
+- **User report:** "needs a bit more explanation and building out." Then: "the game is really difficult when I hold it too long and the boat barely moves but then the focus point goes too deep and wipes out the arena."
+
+#### Bug fixes (the second user report)
+- **Boat barely moves on long holds** — root cause: pressure gradients balance the pull-force at the cursor centre, leaving a low-velocity plateau. Receivers in that plateau weren't being moved by flow.
+  - Fix 1: `RECEIVER_DIRECT_PULL` direct-attraction force in `main.ts applyReceiverAttraction()`. Each frame during hold, every non-sent receiver gets a force toward the cursor scaled by `pullStrength` and falloff over `pullRadius * 1.8`. The water flow advection still applies — direct pull just guarantees the receiver responds to player intent.
+  - Applied uniformly across all three verbs (no verb-specific code; main.ts dispatches it).
+- **Focus point goes too deep / wipes the arena** — root cause: HEIGHT_PUMP=1.2 + advection propagated raised water outward; sustained holds saturated wide bay regions to the foam stop.
+  - Fix 1: HEIGHT_PUMP reduced 1.2 → 0.55. Pump is gentler.
+  - Fix 2: HEIGHT_CAP reduced 1.55 → 1.32 (was just above foam stop 1.5; now sits between mid 0.95 and crest 1.15). Sustained holds cap below foam, leaving full palette range visible.
+  - Fix 3: REST_RATE bumped 0.4 → 0.6 (height returns to rest faster).
+  - Fix 4: SPRING reduced 30 → 22 (less aggressive outward pressure propagation).
+  - Fix 5: DAMPING_RATE bumped 1.5 → 1.8 (velocity decays faster between frames).
+  - Fix 6: HOLD_FORCE_BASE reduced 60 → 50 (gentler velocity injection).
+  - Fix 7: `MAX_VELOCITY = 80` clamp in `step()`. Prevents unbounded velocity accumulation; per-cell velocity magnitude is capped after damping each frame.
+- **Files touched (bug fixes):** `game/src/config.ts`, `game/src/sim/fluid.ts`, `game/src/main.ts`.
+
+#### Polish pass (the first user report)
 - **Built:**
   - **Cursor pull-radius ring** is now drawn around the moon at every phase (faint at idle, brighter on hold). Per the motion bible: 80px / 140px / 110px for waxing / full / waning. Players can SEE the moon's reach at a glance.
   - **Cursor halo growing with hold** — `setHoldStrength(t)` ramps the ring's alpha from 0.18 → 0.63 over the first 400ms of hold. Disc also scales up gently by 6%. Visible "I'm pulling" feedback at the cursor.
@@ -443,5 +459,29 @@ Boat-fill and harbour-rim-idle are the closest calls — both clear 3:1 but not 
   - **Soft-drift refactor** — `updateSoftDrift` no longer touches `cursor.alpha` directly; it only mutates state and applies camera scale. Main.ts composes cursor alpha from `state.softDrift.cursorAlpha * moonriseAlpha`, so the moonrise fade-in and a soft-drift dim no longer fight each other.
 - **Files touched:** `game/src/render/cursor.ts`, `game/src/render/harbour.ts`, `game/src/render/entities.ts`, `game/src/render/moonrise.ts` (new), `game/src/scenes/nightPicker.ts`, `game/src/scenes/softDrift.ts`, `game/src/main.ts`.
 - **Notes for player:** with the moonrise, first-launch flow is now: 3s title card + 8s moonrise ease-in + verb begins. On return launches: 3s title card + 1.8s abridged moonrise + verb. Pressing during either skips them.
-- **Still-deferred (post-slice polish):** per-phase tinted water palette; sent-lantern fade on Night 3 crossing; held-success camera ease-in beat; ambient creatures (gulls, distant whale) in picker idle background.
+- **Still-deferred (now landed in this same pass):** see All-deferred polish pass entry below.
+- **Commit:** see `git log`.
+
+### All-deferred polish pass (continued) — 2026-05-06
+
+Picking up the deferred-polish backlog from the discoverability pass:
+
+- **Per-phase tinted water palettes.** `WATER_PALETTES` in config.ts — three full 5-stop palettes, one per lunar phase. Waxing crescent is the canonical / cool / intimate. Full moon is +5–10% R+G (warmer, brighter — moon closer). Waning gibbous is silvered / slightly desaturated. Differences are within ±~10% per channel so colour-blindness compliance carries (envelope from deepest to foam preserved). `water.ts` lerps the active palette toward the target on `setPhase` over ~700ms (rate=1.5/s × dt blend per frame). Visual differentiation between nights now reads in still frames, not just via audio.
+- **Sent-lantern fade-out on Night 3.** `entities.ts` per-visual `fadingMs` field; when `sent=true` first appears in `sync`, fade starts. Each frame in update, container.alpha = 1 − t over 600ms. Position tracking continues during the fade so the lantern still drifts on momentum until invisible. After fade, `container.visible = false`. No more abruptly-vanishing lanterns.
+- **Held-success camera ease-in.** New `applyHeldSuccessEase(elapsedMs)` in main.ts. While `goalNowComplete` is true, ease worldLayer.scale 1.0 → 1.12 over 1.5s with cubic ease-out. Reset on enterNight + showPicker + finishCurrentNight. `prefersReducedMotion()` skips the ease entirely.
+- **Ambient creatures.** New `render/ambientLife.ts`. Three gulls fly slow horizontal paths across the upper third of the bay (vertical bob + flap rotation, random respawn off-edge). Occasional water-ripple at random position on the bay (1.5px stroke ring expanding 0 → 24-44px over 1.8s, alpha 0.35 → 0). Triggered every 4–9 seconds. Mounted on `worldLayer` so it scales with soft-drift. Doubles as picker-scene idle decoration.
+- **FluidGrid private-fields refactor.** `_h`, `_vx`, `_vy`, `_hScratch` are now private. New `get heights()` getter exposes a read-only-by-convention reference for `water.ts`. The buffer-swap in `step()` stays internal. External writers can no longer break the sim by mutating cells directly.
+- **Files touched (polish):** `game/src/config.ts` (per-phase palettes + sim retune values), `game/src/render/water.ts` (palette lerp + setPhase + dt-driven update), `game/src/render/entities.ts` (sent fade), `game/src/render/ambientLife.ts` (new), `game/src/sim/fluid.ts` (private fields + getter + velocity clamp), `game/src/main.ts` (held-success ease, water phase wiring, ambient layer mount, receiver attraction).
+
+#### Status of polish backlog
+
+| Item | Status |
+|---|---|
+| Per-phase tinted water palette | ✅ landed |
+| Sent-lantern fade on Night 3 | ✅ landed |
+| Held-success camera ease-in beat | ✅ landed |
+| Ambient creatures (gulls + ripples) | ✅ landed |
+| FluidGrid private-fields refactor | ✅ landed |
+| Boat sluggishness / arena wipe (new bug) | ✅ fixed |
+
 - **Commit:** see `git log`.

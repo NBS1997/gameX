@@ -12,24 +12,71 @@ export const GRID_W = 96;
 export const GRID_H = 54;
 export const CELL_SIZE = LOGICAL_WIDTH / GRID_W;
 
-// Sim tunables — initial day-3 spike values; iterate to feel.
+// Sim tunables — iterated to feel after user feedback.
 export const REST_HEIGHT = 1.0;
-export const REST_RATE = 0.4;
-export const SPRING = 30;
-export const DAMPING_RATE = 1.5;
-export const HOLD_FORCE_BASE = 60;
-export const HEIGHT_PUMP = 1.2;
-// Soft height cap: pump tapers as h approaches the cap so sustained holds
-// don't saturate the whole bay to the foam stop.
-export const HEIGHT_CAP = 1.55;
+export const REST_RATE = 0.6;
+export const SPRING = 22;
+export const DAMPING_RATE = 1.8;
+export const HOLD_FORCE_BASE = 50;
+// Pump softened: previously 1.2 saturated wide areas to foam on long holds.
+export const HEIGHT_PUMP = 0.55;
+// Cap below the foam stop (1.5) so the bay's full palette range stays visible
+// during play — only brief peaks reach foam, not sustained holds.
+export const HEIGHT_CAP = 1.32;
+// Velocity magnitude cap. Without this, sustained holds let the velocity field
+// accumulate unboundedly until the bay becomes a churn.
+export const MAX_VELOCITY = 80;
 
-// Five-stop water palette — height -> colour mapping.
-// Stops + palette must stay aligned in length and matched in index.
+// Receiver direct-attraction tunables — applied each frame during hold,
+// in addition to flow-advection. Without this, sustained holds left
+// receivers in low-velocity plateaus and they barely moved.
+export const RECEIVER_DIRECT_PULL = 320;
+export const RECEIVER_PULL_RADIUS_MULTIPLIER = 1.8;
+
+// Five-stop water palette — height -> colour mapping. Per-phase tints keep
+// the same five stops but shift the palette subtly so each lunar phase reads
+// distinctly. Differences are within ±~10% per channel; deuteran/protan/
+// tritan-friendly because the contrast envelope (deepest vs foam) stays
+// constant.
+//
+// Stops + palettes must stay aligned in length (5) and matched by index.
 export const WATER_STOPS: readonly number[] = [0.0, 0.6, 0.95, 1.15, 1.5];
-export const WATER_PALETTE: readonly { r: number; g: number; b: number }[] = [
-  { r: 0x0e, g: 0x17, b: 0x22 },
-  { r: 0x1a, g: 0x26, b: 0x38 },
-  { r: 0x2c, g: 0x3a, b: 0x55 },
-  { r: 0x4d, g: 0x5c, b: 0x7a },
-  { r: 0xa8, g: 0xb5, b: 0xcc },
-];
+
+interface RGB {
+  r: number;
+  g: number;
+  b: number;
+}
+
+export const WATER_PALETTES: Record<
+  'waxing-crescent' | 'full' | 'waning-gibbous',
+  readonly RGB[]
+> = {
+  // Waxing crescent: the canonical palette — cool, intimate, slightly cooler.
+  'waxing-crescent': [
+    { r: 0x0e, g: 0x17, b: 0x22 },
+    { r: 0x1a, g: 0x26, b: 0x38 },
+    { r: 0x2c, g: 0x3a, b: 0x55 },
+    { r: 0x4d, g: 0x5c, b: 0x7a },
+    { r: 0xa8, g: 0xb5, b: 0xcc },
+  ],
+  // Full moon: a touch warmer + brighter (the moon is closer / radiant).
+  full: [
+    { r: 0x12, g: 0x1b, b: 0x27 },
+    { r: 0x21, g: 0x2c, b: 0x40 },
+    { r: 0x35, g: 0x42, b: 0x5e },
+    { r: 0x5a, g: 0x68, b: 0x86 },
+    { r: 0xb6, g: 0xc1, b: 0xd5 },
+  ],
+  // Waning gibbous: silvered, slightly desaturated; the bay quieting.
+  'waning-gibbous': [
+    { r: 0x10, g: 0x1a, b: 0x23 },
+    { r: 0x1d, g: 0x29, b: 0x3a },
+    { r: 0x30, g: 0x3d, b: 0x58 },
+    { r: 0x53, g: 0x60, b: 0x7d },
+    { r: 0xae, g: 0xb8, b: 0xce },
+  ],
+};
+
+// Backwards-compat: default palette used until setPhase swaps it.
+export const WATER_PALETTE: readonly RGB[] = WATER_PALETTES['waxing-crescent'];

@@ -6,6 +6,7 @@ import {
   HEIGHT_CAP,
   HEIGHT_PUMP,
   HOLD_FORCE_BASE,
+  MAX_VELOCITY,
   REST_HEIGHT,
   REST_RATE,
   SPRING,
@@ -14,18 +15,26 @@ import {
 export class FluidGrid {
   readonly width = GRID_W;
   readonly height = GRID_H;
-  h: Float32Array;
-  vx: Float32Array;
-  vy: Float32Array;
-  private hScratch: Float32Array;
+  private _h: Float32Array;
+  private _vx: Float32Array;
+  private _vy: Float32Array;
+  private _hScratch: Float32Array;
 
   constructor() {
     const cells = GRID_W * GRID_H;
-    this.h = new Float32Array(cells);
-    this.vx = new Float32Array(cells);
-    this.vy = new Float32Array(cells);
-    this.hScratch = new Float32Array(cells);
-    this.h.fill(REST_HEIGHT);
+    this._h = new Float32Array(cells);
+    this._vx = new Float32Array(cells);
+    this._vy = new Float32Array(cells);
+    this._hScratch = new Float32Array(cells);
+    this._h.fill(REST_HEIGHT);
+  }
+
+  /**
+   * Read-only height field. Callers must not mutate; the buffer-swap pattern
+   * inside step() relies on owning this reference.
+   */
+  get heights(): Float32Array {
+    return this._h;
   }
 
   applyPull(
@@ -55,10 +64,10 @@ export class FluidGrid {
         const dirY = dist > 0.001 ? dy / dist : 0;
         const force = pullStrength * HOLD_FORCE_BASE * falloff * dt;
         const i = y * GRID_W + x;
-        this.vx[i] += dirX * force;
-        this.vy[i] += dirY * force;
-        const room = Math.max(0, HEIGHT_CAP - this.h[i]);
-        this.h[i] += falloff * pullStrength * HEIGHT_PUMP * room * dt;
+        this._vx[i] += dirX * force;
+        this._vy[i] += dirY * force;
+        const room = Math.max(0, HEIGHT_CAP - this._h[i]);
+        this._h[i] += falloff * pullStrength * HEIGHT_PUMP * room * dt;
       }
     }
   }
@@ -67,42 +76,45 @@ export class FluidGrid {
     const W = GRID_W;
     const cells = GRID_W * GRID_H;
 
-    // Pressure: height gradient pushes velocity (high water flows toward low water)
     for (let y = 1; y < GRID_H - 1; y++) {
       for (let x = 1; x < W - 1; x++) {
         const i = y * W + x;
-        const gradX = (this.h[i + 1] - this.h[i - 1]) * 0.5;
-        const gradY = (this.h[i + W] - this.h[i - W]) * 0.5;
-        this.vx[i] -= gradX * SPRING * dt;
-        this.vy[i] -= gradY * SPRING * dt;
+        const gradX = (this._h[i + 1] - this._h[i - 1]) * 0.5;
+        const gradY = (this._h[i + W] - this._h[i - W]) * 0.5;
+        this._vx[i] -= gradX * SPRING * dt;
+        this._vy[i] -= gradY * SPRING * dt;
       }
     }
 
-    // Velocity damping (frame-rate independent)
     const dampingFactor = Math.exp(-DAMPING_RATE * dt);
+    const maxVSq = MAX_VELOCITY * MAX_VELOCITY;
     for (let i = 0; i < cells; i++) {
-      this.vx[i] *= dampingFactor;
-      this.vy[i] *= dampingFactor;
+      this._vx[i] *= dampingFactor;
+      this._vy[i] *= dampingFactor;
+      const speedSq = this._vx[i] * this._vx[i] + this._vy[i] * this._vy[i];
+      if (speedSq > maxVSq) {
+        const k = MAX_VELOCITY / Math.sqrt(speedSq);
+        this._vx[i] *= k;
+        this._vy[i] *= k;
+      }
     }
 
-    // Height advection + rest restoration (semi-Lagrangian-ish via gradient)
-    for (let i = 0; i < cells; i++) this.hScratch[i] = this.h[i];
+    for (let i = 0; i < cells; i++) this._hScratch[i] = this._h[i];
 
     for (let y = 1; y < GRID_H - 1; y++) {
       for (let x = 1; x < W - 1; x++) {
         const i = y * W + x;
-        const gradX = (this.h[i + 1] - this.h[i - 1]) * 0.5;
-        const gradY = (this.h[i + W] - this.h[i - W]) * 0.5;
-        let h = this.h[i] - (this.vx[i] * gradX + this.vy[i] * gradY) * dt;
+        const gradX = (this._h[i + 1] - this._h[i - 1]) * 0.5;
+        const gradY = (this._h[i + W] - this._h[i - W]) * 0.5;
+        let h = this._h[i] - (this._vx[i] * gradX + this._vy[i] * gradY) * dt;
         h += (REST_HEIGHT - h) * REST_RATE * dt;
-        this.hScratch[i] = h;
+        this._hScratch[i] = h;
       }
     }
 
-    // Swap buffers (zero-allocation)
-    const tmp = this.h;
-    this.h = this.hScratch;
-    this.hScratch = tmp;
+    const tmp = this._h;
+    this._h = this._hScratch;
+    this._hScratch = tmp;
   }
 
   sampleHeight(logicalX: number, logicalY: number): number {
@@ -114,7 +126,7 @@ export class FluidGrid {
       0,
       Math.min(GRID_H - 1, Math.floor(logicalY / CELL_SIZE)),
     );
-    return this.h[gy * GRID_W + gx];
+    return this._h[gy * GRID_W + gx];
   }
 
   sampleFlow(logicalX: number, logicalY: number): { vx: number; vy: number } {
@@ -127,6 +139,6 @@ export class FluidGrid {
       Math.min(GRID_H - 1, Math.floor(logicalY / CELL_SIZE)),
     );
     const i = gy * GRID_W + gx;
-    return { vx: this.vx[i], vy: this.vy[i] };
+    return { vx: this._vx[i], vy: this._vy[i] };
   }
 }

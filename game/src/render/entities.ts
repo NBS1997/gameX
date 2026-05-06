@@ -6,12 +6,15 @@ const BOAT_RIM = 0xd6b88a;
 const LANTERN_FILL = 0xfff4d6;
 const LANTERN_HALO = 0xffae5a;
 
+const SENT_FADE_MS = 600;
+
 interface EntityVisual {
   container: Container;
   body: Graphics;
   glow?: Graphics;
   bobSeed: number;
   type: 'boat' | 'lantern';
+  fadingMs: number | null;
 }
 
 export interface EntityRenderer {
@@ -35,11 +38,13 @@ export function createEntityRenderer(
 
   let elapsed = 0;
   let positions = new Map<string, { x: number; y: number }>();
+  let sentFlags = new Map<string, boolean>();
 
   const sync = (receivers: readonly ReceiverInstance[]): void => {
     positions = new Map(
       receivers.map((r) => [r.id, { x: r.position.x, y: r.position.y }]),
     );
+    sentFlags = new Map(receivers.map((r) => [r.id, r.sent]));
   };
 
   const update = (dt: number): void => {
@@ -47,6 +52,24 @@ export function createEntityRenderer(
     for (const [id, pos] of positions) {
       const visual = visuals.get(id);
       if (!visual) continue;
+
+      const sent = sentFlags.get(id) ?? false;
+      if (sent && visual.fadingMs === null) {
+        visual.fadingMs = 0;
+      }
+
+      if (visual.fadingMs !== null) {
+        visual.fadingMs += dt * 1000;
+        const t = Math.min(1, visual.fadingMs / SENT_FADE_MS);
+        visual.container.alpha = 1 - t;
+        if (t >= 1) {
+          visual.container.visible = false;
+        }
+        // Continue moving with momentum until faded out.
+        visual.container.position.set(pos.x, pos.y);
+        continue;
+      }
+
       const bobY = Math.sin(elapsed * 1.4 + visual.bobSeed) * 1.6;
       visual.container.position.set(pos.x, pos.y + bobY);
       if (visual.type === 'boat') {
@@ -90,5 +113,6 @@ function makeVisual(receiver: ReceiverInstance, idx: number): EntityVisual {
     glow,
     bobSeed: idx * 0.7,
     type: receiver.type,
+    fadingMs: null,
   };
 }
