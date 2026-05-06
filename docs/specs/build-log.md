@@ -701,3 +701,26 @@ Picking up the deferred-polish backlog from the discoverability pass:
 
 - **REVIEW_RESULT: APPROVED_WITH_NOTES**
 - **PR_NUMBER: N/A — direct commit 5c24258 on main**
+
+## Closure-sprint cycle 4 — OQ18 N3-only gate
+
+### Cycle 4 — 2026-05-06
+
+- **Built:** Single call-site edit in `game/src/main.ts`. Wrapped `applyReceiverAttraction(scene.state, dt)` in a `goal.kind === 'send'` guard so direct cursor-to-receiver attraction fires only on Night 3 (N3). N1 'guide' and N2 'gather' now move via flow-field alone, consistent with the wedge clause "moon pulls water → water pulls things." The OQ18 marker comment block is embedded at the call site per the regression-check contract.
+- **Files touched:** `game/src/main.ts` (single block: replaced bare `applyReceiverAttraction` call with a `goal.kind === 'send'` guard + mandatory OQ18 comment).
+- **Verification:**
+  1. `npx tsc --noEmit` — exit 0.
+  2. `npm run lint` — exit 0.
+  3. `Select-String -Path src/main.ts -Pattern 'OQ18' -Quiet` — True.
+  4. `Select-String -Path src/main.ts -Pattern 'SAVOUR_MIN_MS' -Quiet` — True (cycle-2 regression).
+  5. `Test-Path src/render/intentBeat.ts` — True (cycle-3 regression).
+  6. `Select-String -Path src/render/moonrise.ts -Pattern 'prefersReducedMotion' -Quiet` — True (cycle-1 regression).
+- **P3 cuts taken:** None. Change is a behaviour gate only — no retune of `night-1.delta.json` or `night-2.delta.json` pull constants. Retune is explicitly reserved for cycle 5 if the browser feel-test reveals N1 boats fail to reach the harbour via flow alone.
+- **Out of scope:**
+  - **Cursor-tether shimmer** — separate cycle pick; `cursorTether.ts` was not created.
+  - **N3 fade-to-silence** — separate cycle pick; audio unchanged.
+  - **N1/N2 `pullStrength` retune** — deliberately deferred. See Watch-outs below.
+- **Watch-outs:**
+  - **N1/N2 retune risk (closure-sprint risk #1).** Removing direct receiver pull from N1 and N2 may make guidance feel weaker — particularly on N1 where a single boat must reach the harbour via flow-field alone. The closure-sprint plan reserves a full cycle for retune if the browser feel-test (OQ18 test steps 2–3 in `feel-test-protocol.md`) reveals this. If N1 boats fail to reach the harbour reliably, cycle 5 should bump `night-1.delta.json` `pullStrength` upward in 0.05 increments until the flow-field alone carries the boat. Do not retune without running the empirical browser test first.
+  - `goal.kind` type-narrows to the `Goal` discriminated union's three variants (`guide` / `gather` / `send`). If a fourth verb is ever added, the guard remains correct as written (new verb kind is not `'send'`, so it correctly skips direct attraction — but its flow-only guidance should be reviewed intentionally, not inherited silently).
+- **Commit:** see `git log`.
