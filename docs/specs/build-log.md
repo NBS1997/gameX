@@ -39,9 +39,31 @@ Append-only working log for Phase 3. Each agent appends to its own subsection.
 
 *(populated by reviewer + qa-agent after each day)*
 
+### Phase-4 Cycle 1 QA — 2026-05-06
+- **Automatable acceptance:** ethics-perimeter sweep + static analysis run against `7c2fabe`
+- **Browser-required acceptance:** all feel-test browser checks still pending human pass (stranger test, reduce-motion pass, clip-render, full-slice timing)
+- **Ethics-perimeter sweep:** clean — no forbidden SDK imports, no outbound network calls, no dark-pattern UI strings, single `localStorage.setItem` call writing key `tide-pull/save/v1` (allowed)
+- **`tsc --noEmit`:** exit 0, clean
+- **`npm run lint` (ESLint):** exit 0, clean
+- **Runtime deps:** `pixi.js` only — clean
+- **Notes:** The retrospective's flagged open bug is confirmed. `render/moonrise.ts` contains zero references to `prefersReducedMotion` or `prefers-reduced-motion`; it animates a camera-lift + cursor-alpha ramp unconditionally. `main.ts` calls `moonrise.start()` and `moonrise.update()` with no reduced-motion guard. The `skip()` path is only reachable via press input, not via the OS preference. This is a live WCAG 2.2 SC 2.3.3 gap. All other perimeter lines are honoured. Fluid sim has a `MAX_VELOCITY` clamp in `sim/fluid.ts` confirming the post-slice retune landed; no further sim regression detected at static level.
+- **Browser checks required:**
+  - [ ] Reduce-motion test (feel-test-protocol §The reduce-motion test) — especially step 3: confirm moonrise is an instant cut + 400 ms ambient fade when `Animation effects: Off`
+  - [ ] 60-second sandbox feel-test
+  - [ ] Full-slice test (Nights 1–3, 8–12 min)
+  - [ ] Clip-render test
+  - [ ] Contrast / colour-blindness audit (N2 + N3 palettes not yet audited)
+  - [ ] Stranger test (canonical slice acceptance)
+
 ## Regressions
 
 *(populated by qa-agent when found)*
+
+### moonrise-reduce-motion — found Phase-4 Cycle 1
+- **Symptom:** `render/moonrise.ts` performs a camera-lift animation and cursor-alpha ramp with no check of `prefers-reduced-motion`. The `a11y/reduceMotion.ts` utility exists and is used by `cursorTrail` and `softDrift`, but `moonrise` never imports it.
+- **Reproduce:** Enable Windows Accessibility → Visual effects → Animation effects: Off. Hard-refresh `http://localhost:5173/`. Observe: moonrise still plays the full camera-lift animation instead of an instant cut + 400 ms ambient fade.
+- **Expected:** Per feel-test-protocol §The reduce-motion test step 3 and retrospective Goal 3 / P1 item #3: when `prefers-reduced-motion: reduce` is active, moonrise must be an instant cut + 400 ms ambient fade, not a camera lift.
+- **Severity:** high — this is a WCAG 2.2 SC 2.3.3 conformance gap and a stated P1 blocker in the v0.5 closure sprint.
 
 ## P3 cuts taken
 
@@ -415,6 +437,26 @@ Boat-fill and harbour-rim-idle are the closest calls — both clear 3:1 but not 
 - **Cause:** `applyPull` in `game/src/sim/fluid.ts` added `HEIGHT_PUMP * pullStrength * dt * falloff` to `h` each frame unconditionally. Over sustained holds the height climbed past the foam stop (1.5) and saturated the entire grid to the brightest palette colour, consuming the bay visually.
 - **Fix:** room-scaled pump. Multiplied the pump term by `Math.max(0, HEIGHT_CAP - h)` so growth tapers as height approaches `HEIGHT_CAP = 1.55`. Short pulls feel identical; sustained holds top out at foam locally and stay there.
 - **Files touched:** `game/src/config.ts` (added `HEIGHT_CAP = 1.55`), `game/src/sim/fluid.ts`.
+
+## Reviews
+
+### Phase-4 Cycle-1 QA — 2026-05-06
+- **Scope:** single-file fix to `game/src/render/moonrise.ts` — reduce-motion guard for the 8-second first-launch camera lift.
+- **Automatable acceptance:** 4/4 criteria passed via code/server checks.
+- **Browser-required acceptance:** 1 criterion pending human pass — see "Browser checks required" below.
+- **Ethics-perimeter sweep:** clean — no analytics, tracking, or telemetry imports found in any `.ts` or `.tsx` file under `game/src/`.
+- **Notes:**
+  - `Select-String` regression check returns `True`: `prefersReducedMotion` is present in `moonrise.ts`.
+  - `npx tsc --noEmit` exits 0, no type errors.
+  - Code inspection passes on all four required properties:
+    1. Sets `worldLayer.position.y` via `worldLayerBaseY(worldLayer)` — correct base-offset snap (line 36).
+    2. Sets `cursorAlpha.value = 1` (line 37).
+    3. Sets `phase = 'idle'` (line 38) and `elapsedMs = durationMs` (line 39) — subsequent `skip()` is a no-op as required.
+    4. `return` on line 40 exits before the eased-tween path at lines 42–53.
+  - Pattern matches the per-frame `prefersReducedMotion()` read convention from `scenes/softDrift.ts` lines 20–27: imported at module top, called per frame inside the update guard, no cached value.
+  - `worldLayerBaseY()` helper reads the `__baseY` tag written at boot by `rememberWorldLayerBaseY()`; correctly falls back to the live `position.y` if the tag is absent (non-firstLaunch path where boot hasn't run).
+- **Browser checks required:**
+  - The canonical reduce-motion feel-test (feel-test-protocol §"The reduce-motion test" steps 1–7): enable "Windows Settings → Accessibility → Visual effects → Animation effects off", open `http://localhost:5173/` in the browser, confirm the 8-second camera lift is replaced by an instant cut to the idle state with no position tween visible, and that the ambient-bed audio still fades in normally on first gesture. Requires a live browser session — cannot be automated.
 - **Commit:** `7723d1c`.
 
 ## Docs

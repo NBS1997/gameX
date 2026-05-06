@@ -6,7 +6,7 @@ phase: 2.5
 authors: [orchestrator]
 ---
 
-# Feel-Test Protocol — *Tide / Pull* slice
+# Feel-Test Protocol — *Neap* slice (working title was *Tide / Pull*)
 
 The QA runbook. Used by the QA agent (for the automatable parts) and by the human (for the browser-session parts) to verify each tech-plan day against the design spec's acceptance criteria.
 
@@ -70,6 +70,20 @@ The QA runbook. Used by the QA agent (for the automatable parts) and by the huma
 
 **Pass:** all seven. **Fail:** any one.
 
+### Automatable regression check (code-level)
+
+Every animation entry-point under `game/src/render/` and `game/src/scenes/` that authors a multi-frame motion (camera tween, ease-in/out, particle burst, eased opacity) **must** consult `prefersReducedMotion()` from `../a11y/reduceMotion.ts` and apply the bible's swap rule.
+
+The QA agent runs this static check from `C:\Dev\gameX\game\`:
+
+```powershell
+# Each render/scene file that drives multi-frame motion must import or call prefersReducedMotion.
+# Currently in scope: cursorTrail, softDrift, main (held-success ease), moonrise.
+Select-String -Path src/render/moonrise.ts -Pattern 'prefersReducedMotion' -Quiet
+```
+
+**Pass:** the file matches. **Fail:** the file does not — the animation is running unconditionally and is a WCAG 2.2 SC 2.3.3 conformance gap. Forward-log entry from cycle 1 of `/captain` (2026-05-06) names this as the regression check that gated the moonrise reduce-motion fix.
+
 ## The clip-render test
 
 **Run after:** day 7 (trailer cut) and day 9 (verification).
@@ -95,7 +109,7 @@ The QA runbook. Used by the QA agent (for the automatable parts) and by the huma
 ## The ethics-perimeter sweep (every QA run)
 
 1. **DevTools → Network tab.** Hard-refresh. Wait for assets to resolve. Confirm: zero `fetch` / `xhr` rows after initial asset load (filter `Fetch/XHR`).
-2. **DevTools → Application → Local Storage.** Confirm: only `tide-pull/save/v1` exists. Any other key = violation.
+2. **DevTools → Application → Local Storage.** Confirm: only `neap/save/v2` exists (and possibly the legacy `tide-pull/save/v1` if the user previously launched the slice — it is read-only and acceptable). Any other key = violation.
 3. **DevTools → Application → Service Workers.** Confirm: none registered.
 4. **DevTools → Application → Notifications.** Confirm: permission state is `default` and game has not requested.
 5. **Visual scan of all UI surfaces** (sandbox, title, all three nights, picker post-completion). Confirm: no button / link / icon labelled "share", "wishlist", "follow", "post", "tweet". The trailer end-card is external — not in the build.

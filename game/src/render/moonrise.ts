@@ -1,4 +1,5 @@
 import type { Container } from 'pixi.js';
+import { prefersReducedMotion } from '../a11y/reduceMotion.ts';
 
 const FIRST_LAUNCH_DURATION_MS = 8000;
 const RETURN_LAUNCH_DURATION_MS = 1800;
@@ -30,6 +31,14 @@ export function createMoonrise(): Moonrise {
     cursorAlpha: { value: number },
   ): void => {
     if (phase !== 'rising') return;
+    // Reduce-motion swap (motion bible §reduce-motion swap rules): instant cut, no camera lift.
+    if (prefersReducedMotion()) {
+      worldLayer.position.y = worldLayerBaseY(worldLayer);
+      cursorAlpha.value = 1;
+      phase = 'idle';
+      elapsedMs = durationMs;
+      return;
+    }
     elapsedMs += dt * 1000;
     const t = Math.min(1, elapsedMs / durationMs);
     const eased = 1 - Math.pow(1 - t, 3);
