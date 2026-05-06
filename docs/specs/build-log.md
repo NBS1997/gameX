@@ -724,3 +724,73 @@ Picking up the deferred-polish backlog from the discoverability pass:
   - **N1/N2 retune risk (closure-sprint risk #1).** Removing direct receiver pull from N1 and N2 may make guidance feel weaker — particularly on N1 where a single boat must reach the harbour via flow-field alone. The closure-sprint plan reserves a full cycle for retune if the browser feel-test (OQ18 test steps 2–3 in `feel-test-protocol.md`) reveals this. If N1 boats fail to reach the harbour reliably, cycle 5 should bump `night-1.delta.json` `pullStrength` upward in 0.05 increments until the flow-field alone carries the boat. Do not retune without running the empirical browser test first.
   - `goal.kind` type-narrows to the `Goal` discriminated union's three variants (`guide` / `gather` / `send`). If a fourth verb is ever added, the guard remains correct as written (new verb kind is not `'send'`, so it correctly skips direct attraction — but its flow-only guidance should be reviewed intentionally, not inherited silently).
 - **Commit:** see `git log`.
+
+
+### Closure-sprint cycle 4 QA — OQ18 N3-only gate
+
+- **Automatable acceptance: 10/10 criteria passed via code/static checks**
+
+  Static checks:
+  1. `npx tsc --noEmit` — exit 0. PASSED.
+  2. `npm run lint` — exit 0. PASSED.
+  3. `Select-String -Path src/main.ts -Pattern 'OQ18' -Quiet` — True. PASSED.
+  4. `Select-String -Path src/main.ts -Pattern 'SAVOUR_MIN_MS' -Quiet` — True (cycle-2 regression). PASSED.
+  5. `Test-Path src/render/intentBeat.ts` — True (cycle-3 regression). PASSED.
+  6. `Select-String -Path src/render/moonrise.ts -Pattern 'prefersReducedMotion' -Quiet` — True (cycle-1 regression). PASSED.
+
+  Diff inspection:
+  7. `applyReceiverAttraction(scene.state, dt)` is inside `if (scene.state.level.night.goal.kind === 'send') { ... }` at main.ts lines 199-201. CONFIRMED.
+  8. OQ18 comment block (main.ts lines 194-198) present above the guard: names the wedge clause ("moon pulls water -> water pulls things"), N3-only invariant, retrospective adjudication, and trailer test anchor (P1 #9). CONFIRMED.
+  9. No other code changes: no cursor-tether, no audio changes, no file deletions, no level-data edits. `applyReceiverAttraction` function definition (main.ts lines 279-297) is UNCHANGED -- only the call-site is gated. CONFIRMED.
+  10. Input-gate composition: main.ts line 185 reads `const moonriseGate = !moonrise.isActive() && !intentBeat.isActive()`. The OQ18 guard at lines 199-201 is nested inside `if (pointer.holding && !scene.state.softDrift.active && moonriseGate)` at line 186 -- the N3 guard is correctly inside the moonriseGate-protected block, not at ticker top-level. CONFIRMED.
+
+- **Ethics-perimeter sweep: clean**
+  - Forbidden analytics imports (`sentry`, `posthog`, `plausible`, `mixpanel`, `gtag`, `googletagmanager`, `analytics`): zero matches in `src/`.
+  - Network/notification APIs (`fetch(`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `Notification`): zero matches in `src/`.
+  - `localStorage.setItem` keys: one match -- `src/state/save.ts` line 68, key `SAVE_KEY = 'neap/save/v2'`. No new keys introduced by this commit. CLEAN.
+  - Forbidden UI strings (`share`, `wishlist`, `follow`, `streak`, `leaderboard`, `notification`): zero matches in `src/`.
+  - `package.json` runtime deps: `pixi.js` only. CLEAN.
+
+- **Regressions: none found**
+  - Cycle-3 intent-beat: `intentBeat.ts` exists; wired at main.ts lines 91-92 (boot mount), 168 (skip), 177 (update), 185 (gate), 334 (start in enterNight); composite moonriseGate at line 185 intact.
+  - Cycle-2 held-success: `SAVOUR_MIN_MS` at line 51; `savourCeiling`/`savourTap` split at lines 238-243; `pressEdge && !wasGoalComplete` gate at line 164; `enterNight()` resets `postCompleteMs` (line 301) and `wasGoalComplete` (line 302) -- no cross-night leak possible.
+  - Cycle-1 moonrise reduce-motion: `prefersReducedMotion()` present in `moonrise.ts`. CONFIRMED.
+
+- **Notes:**
+  - The guard is a single discriminated-union check (`goal.kind === 'send'`). TypeScript narrows correctly; no runtime overhead. If a fourth verb is ever added it will receive flow-only behaviour by default -- consistent with the wedge clause -- but that new verb's guidance tuning must be reviewed intentionally.
+  - `applyReceiverAttraction` function body is UNCHANGED. The entire cycle-4 change is one call-site edit plus the comment block.
+  - N1/N2 `pullStrength` retune is deliberately absent from this cycle. Cycle 5 should retune only after the browser feel-test (OQ18 test steps 2-3) confirms whether flow-only guidance is sufficient.
+
+- **Browser-required acceptance: 1 set pending human pass**
+  - [ ] Full manual feel-test -- "The OQ18 N3-only direct-pull test" steps 1-6 in `docs/specs/feel-test-protocol.md`:
+    - Step 2: N1 boat moves via water deformation (delayed, indirect) -- NOT direct cursor tug.
+    - Step 3: N1 boat still reaches the harbour via flow alone. Critical empirical gate for cycle 5: if the boat consistently fails, cycle 5 retunes `night-1.delta.json` `pullStrength` upward in 0.05 increments.
+    - Step 4: N2 lanterns drift via bay-fill flow, not direct cursor pull.
+    - Step 5: N3 lanterns respond to direct cursor pull on top of flow (verb IS the release).
+    - Step 6 (optional): DevTools console `goal.kind` log confirms gate evaluates correctly per night.
+    Requires browser session, sound on, localStorage cleared.
+
+- **QA_RESULT: PASSED_WITH_NOTES** *(browser feel-test pending human pass -- empirical decider for whether N1/N2 reach goal via flow alone; if they do not, cycle 5 retunes pullStrength)*
+- **PR_NUMBER: N/A -- direct commit a9d1e2c on main**
+
+### Closure-sprint cycle 4 Review — OQ18 N3-only gate
+
+- **Verdict (initial):** CHANGES_REQUESTED — single blocker on conventions §"No-comment policy" line 131 ("One short line is the maximum"). The 5-line OQ18 comment block at `main.ts` lines 194-198 violated the cap. Content was correct (the *why*: wedge clause + retrospective adjudication + empirical re-test pointer) but the form was paragraph-shaped where conventions require a single line. Reviewer noted the orchestrator's dispatch text had instructed the dev-agent to "Keep the comment block as written" — that was an orchestrator-side error.
+- **Verdict (after compression):** APPROVED_WITH_NOTES.
+- **Reviewer:** reviewer agent, against `a9d1e2c` on `main`, diff `e6d59e7..a9d1e2c -- game/src/main.ts`.
+- **Resolution:** orchestrator compressed the comment in-session to one line per conventions cap (commit `2375ec4`). Single-line form retained: invariant name (OQ18), N3-only constraint, the N1/N2 movement consequence, and the trailer P1 #9 empirical re-test pointer. All factual content from the original 5-line block is preserved; the form complies with conventions.
+- **Spec fit:** `applyReceiverAttraction` now called only when `state.level.night.goal.kind === 'send'`. Function definition at lines 279–297 unchanged — change is purely at the call-site, which is the spec's preferred form. Gherkin scenario satisfied: N1 'guide' + N2 'gather' skip the call; N3 'send' fires it.
+- **Stack discipline:** no `any`; no new imports; no new runtime deps; no network calls; no `localStorage` writes. Discriminated-union narrowing on `goal.kind` is type-safe.
+- **Wiring correctness:** OQ18 gate composes correctly inside the existing `if (pointer.holding && !scene.state.softDrift.active && moonriseGate)` block. `grid.applyPull` (water flow) remains unconditional within hold-gate — water flow is the wedge's first half on every night. `pointer.holdMs += ticker.deltaMS` and `releaseHoldMs = pointer.holdMs` accumulation remain outside the OQ18 guard but inside the hold-gate — `holdMs` accumulates identically across all three nights.
+- **State leak / regression:** clean. No cross-night accumulation introduced. Function body unchanged so no function-internal state leaks.
+- **Ethics ban list:** clean. Diff is physics-only — no UI text, notifications, analytics, fetch/network, or forbidden UI strings.
+- **A11y:** no motion change, no render change, reduce-motion path unchanged. Gate affects physics only.
+- **No regressions:** cycle-1 moonrise reduce-motion (`prefersReducedMotion` in `moonrise.ts`); cycle-2 held-success (`SAVOUR_MIN_MS`, savour-tap/ceiling, press-attack-suppression gate); cycle-3 intent beat (`intentBeat.ts`, container mount, skip-on-press, input-gate composition) — all confirmed intact.
+- **Retune risk surfaced:** YES — build-log cycle-4 dev-agent entry under `## Closure-sprint cycle 4 — OQ18 N3-only gate` Watch-outs section names the N1/N2 retune risk per closure-sprint risk #1. Cycle 5 will pick it up if browser feel-test reveals N1 boats fail to reach harbour via flow alone (specifically: bump `night-1.delta.json` `pullStrength` upward in 0.05 increments).
+- **Notes (no further code change requested):**
+  1. **Empirical OQ18 re-test (not a code matter).** The browser feel-test is the empirical decider. If N1 boats consistently fail to reach the harbour, cycle 5 retunes; the gate itself stays as-shipped.
+  2. **Orchestrator-side learning.** The 5-line comment was authored by the orchestrator's dispatch instructions, not the dev-agent's freelance choice. Future cycle dispatches should not dictate multi-line comment blocks when the conventions cap is single-line — reviewer's catch was correctly placed at the conventions boundary.
+- **Remaining gate:** browser feel-test (QA's pending human pass on the five OQ18 manual feel-test steps in `feel-test-protocol.md`) — not a reviewer blocker, correctly flagged by QA.
+
+- **REVIEW_RESULT: APPROVED_WITH_NOTES** *(after compression at `2375ec4`)*
+- **PR_NUMBER: N/A — direct commits `a9d1e2c` (gate) + `2375ec4` (comment compression) on main**

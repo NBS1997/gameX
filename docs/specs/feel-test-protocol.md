@@ -141,6 +141,35 @@ Select-String -Path src/main.ts -Pattern 'intentBeat' -Quiet
 
 **Pass:** both commands return True. **Fail:** the affordance is unwired and N2/N3 open silently — closure-sprint P1 #5 regression.
 
+## The OQ18 N3-only direct-pull test
+
+**Run after:** any cycle that touches `applyReceiverAttraction` or the call-site in `game/src/main.ts`.
+
+**Why:** the wedge clause is "moon pulls water → water pulls things." Direct cursor → receiver attraction must be N3-only (`goal.kind === 'send'`) so N1 boats and N2 lanterns move via the fluid flow field alone — the moon pulls water, water carries the receivers. On N3 the verb IS releasing / sending, so direct attraction is acceptable as the verb-grammar. The retrospective adjudicated this; the closure-sprint plan day 3 schedules it. If the gate doesn't ship, the trailer (P1 #9) cannot demonstrate the wedge honestly because the moon will appear to pull receivers directly on every night.
+
+### Manual feel-test (after a code change to `applyReceiverAttraction`'s call-site)
+
+1. Hard-refresh the page. Clear localStorage. Play Night 1.
+2. **Test N1 (guide) — flow only.** Press-and-hold near the boat. Confirm the boat moves *because the water pushed it*, not *because the cursor tugged it*. Move the cursor in slow circles around the boat at varying distances; the boat's motion should follow the water deformation (delayed, indirect), not lock to the cursor's heading (direct, instant).
+3. **Test N1 reaches harbour.** Confirm the boat still settles into the harbour ring via flow alone. If the boat consistently fails to reach the harbour, retune `night-1.delta.json` `pullStrength` upward in 0.05 increments until guidance feels right.
+4. **Test N2 (gather) — flow only.** Replay Night 2. Confirm: lanterns drift toward each other via the bay filling, not via direct cursor pull. Cluster forms naturally as water gathers them.
+5. **Test N3 (send) — direct pull active.** Replay Night 3. Confirm: direct cursor-to-lantern pull IS still applied. Hold near a lantern; it should respond to the cursor on top of the flow field. The verb-grammar is "let go / send" — direct pull is the verb here.
+6. **Per-night gate verification (DevTools).** Optional: in DevTools console during N1/N2, log the `goal.kind` to confirm the gate evaluates correctly per night.
+
+**Pass:** all five behaviours land cleanly. **Fail:** N1/N2 receivers visibly track cursor heading directly, OR N3 lanterns ignore the cursor and only respond to flow.
+
+### Automatable regression check (code-level)
+
+The QA agent runs this static check from `C:\Dev\gameX\game\`:
+
+```powershell
+# OQ18: a marker comment at the applyReceiverAttraction call-site documents
+# the N3-only invariant and serves as the regression anchor.
+Select-String -Path src/main.ts -Pattern 'OQ18' -Quiet
+```
+
+**Pass:** match returns True. **Fail:** match returns False — the call-site is unguarded and the wedge clause is silently contradicted on N1/N2 (retrospective OQ18 adjudication; trailer P1 #9 cannot record honestly).
+
 ## The clip-render test
 
 **Run after:** day 7 (trailer cut) and day 9 (verification).
