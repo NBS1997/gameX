@@ -47,6 +47,7 @@ import './style.css';
 const HELD_SUCCESS_HOLD_MS = 2500;
 const HELD_SUCCESS_EASE_MS = 1500;
 const HELD_SUCCESS_TARGET_SCALE = 1.12;
+const SAVOUR_MIN_MS = 1500;
 const HOLD_RAMP_MS = 400;
 
 document.documentElement.style.setProperty(
@@ -156,7 +157,7 @@ app.ticker.add((ticker) => {
   if (pressEdge && !audio.started) {
     void audio.start(currentLunarPhase());
   }
-  if (pressEdge) {
+  if (pressEdge && !wasGoalComplete) {
     audio.pressAttack();
     if (titleCard.isActive()) titleCard.skip();
     if (moonrise.isActive()) moonrise.skip();
@@ -221,7 +222,9 @@ app.ticker.add((ticker) => {
     if (goalNowComplete) {
       postCompleteMs += ticker.deltaMS;
       applyHeldSuccessEase(postCompleteMs);
-      if (postCompleteMs >= HELD_SUCCESS_HOLD_MS) {
+      const savourCeiling = postCompleteMs >= HELD_SUCCESS_HOLD_MS;
+      const savourTap = postCompleteMs >= SAVOUR_MIN_MS && pressEdge;
+      if (savourCeiling || savourTap) {
         worldLayer.scale.set(scene.state.softDrift.cameraScale);
         finishCurrentNight(scene);
       }

@@ -549,3 +549,16 @@ Picking up the deferred-polish backlog from the discoverability pass:
   - Day 1 changed the migration write path (`writeSave` is called from `loadSave` during the legacy migration). On any localStorage-disabled or quota-exceeded environment the migration silently no-ops, the empty save shape is returned, and the game starts fresh — no error surfaced to the player. Consistent with the existing v1 defensive pattern.
   - The `allGhostsForPicker` helper exists today but isn't called yet; day 7's `showPicker()` change will wire it in.
 - **Commit:** see `git log`.
+
+## Closure-sprint cycle 2 — held-success dwell-to-savour
+
+### Cycle 2 — 2026-05-05
+
+- **Change:** P1 #4 reframe — held-success auto-advance demoted from forced cut to ceiling (no-input fallback). From 1500ms onward any pointer press advances the night immediately. Press-attack audio suppressed during the savour window so the press signals advance, not engage.
+- **Three edits to `game/src/main.ts`:**
+  1. Added `const SAVOUR_MIN_MS = 1500` alongside the existing held-success constants (line 50).
+  2. Goal-met advance block now evaluates two paths: `savourCeiling` (`postCompleteMs >= HELD_SUCCESS_HOLD_MS`) and `savourTap` (`postCompleteMs >= SAVOUR_MIN_MS && pressEdge`). The `worldLayer.scale.set` reset runs before both paths. Auto-advance at 2500ms is preserved as the no-input fallback.
+  3. Press-edge handler gated with `&& !wasGoalComplete` — suppresses `audio.pressAttack()`, title-card skip, and moonrise skip during the savour window. Audio `start()` initialisation is intentionally outside the gate (idempotent, unrelated).
+- **Ethics perimeter:** closes the soft-compulsion drift flagged in retrospective P1 #4 (habit-formation R2). Unconditional forced cut at 2500ms was the violation; player now chooses the moment of advance after the savour minimum protects the bell-and-cream beat.
+- **Verification:** `npx tsc --noEmit` clean; `npm run lint` clean; `Select-String -Path src/main.ts -Pattern 'SAVOUR_MIN_MS' -Quiet` returns True.
+- **Commit:** see `git log`.
