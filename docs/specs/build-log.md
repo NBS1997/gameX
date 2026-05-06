@@ -682,3 +682,22 @@ Picking up the deferred-polish backlog from the discoverability pass:
 
 - **QA_RESULT: PASSED_WITH_NOTES** *(browser feel-test pending human pass)*
 - **PR_NUMBER: N/A — direct commit 5c24258 on main**
+
+### Closure-sprint cycle 3 Review — intent beat
+
+- **Verdict:** APPROVED_WITH_NOTES.
+- **Reviewer:** reviewer agent, against `5c24258` on `main`, diff `146b55b..5c24258 -- game/src/render/intentBeat.ts game/src/main.ts`.
+- **Tech-plan acceptance fit:** Closure-sprint day-4 P1 #5 delivered. Re-entry suppression via `seenSet: Set<NightNumber>` correctly closure-scoped (per-tab session, resets on reload). N1 gate-only confirmed (no graphics; harbour ring carries the affordance). N2 centroid derived from `level.night.spawns.filter(s => s.type === 'lantern')`, fallback `(960, 540)`. N3 origin `(1920, 540)`. Reduce-motion swap: single static ring at peak alpha for `REDUCE_MOTION_DURATION_MS = 200`, sampled at `start()` time per the moonrise pattern.
+- **Stack discipline:** zero `any`; type-only imports for `LevelDef` and `NightNumber` from `'../level/types.ts'` per conventions; no new runtime deps (`package.json` shows `pixi.js` only); imports limited to `pixi.js`, `'../a11y/reduceMotion.ts'`, and `'../level/types.ts'`.
+- **Wiring correctness:** press-edge `intentBeat.skip()` inside `if (pressEdge && !wasGoalComplete)` — same shape as `titleCard.skip()` and `moonrise.skip()`. Input gate extended cleanly: `const moonriseGate = !moonrise.isActive() && !intentBeat.isActive()` at line 185 (the existing variable name is preserved as the composite gate). `intentBeat.start(night, level)` at line 327, immediately after `titleCard.show()` at line 326. Container mounted on `worldLayer` between `ghostLayer` and `ambientLife.container` at line 92 — z-order correct (above water/ghosts, below entities).
+- **State leak:** `seenSet` is closure-scoped (single `createIntentBeat()` call at boot); `phase` reset on every `start()`; `ring.clear()` called in `finish()`. No leak vectors.
+- **Ethics ban list:** clean. No new UI text; no notifications; no analytics; no fetch/network APIs introduced; zero matches for forbidden UI strings (`share`, `wishlist`, `follow`, `streak`, `leaderboard`, `notification`) in the new file or wiring diff. Module is invisible-to-language by construction.
+- **A11y:** `prefersReducedMotion()` sampled at `start()` time and cached — same pattern as `moonrise.ts`. Mid-beat OS toggle takes effect on the next night entry, not mid-frame; consistent with how the other reduced-motion-aware modules behave. Spec does not require live mid-frame responsiveness.
+- **Code shape:** `intentBeat.ts` is 134 LoC, within the ~120 LoC estimate. `main.ts` stays orchestration-only — no rendering code added inline. Identifiers clear. No regressions in cycle-2 held-success block (`SAVOUR_MIN_MS`, `pressEdge && !wasGoalComplete` gate, savour ceiling/tap split) or cycle-1 moonrise reduce-motion path.
+- **Notes (no code change requested):**
+  1. **N1 first-entry input is gated for 1.5s while `container.visible` stays `false`.** This is the spec's intent — harbour pulse provides the visual; intent-beat occupies the gate to (a) suppress re-entry, (b) give the harbour pulse one full cycle to register before pull responds. QA's manual feel-test step 2 will confirm the gate duration aligns with the harbour pulse cadence; if it feels off, `N1_DURATION_MS` is the single tunable. Not a code defect.
+  2. **`createIntentBeat` import lands out of alphabetical order in main.ts's render-import block** (`moonrise → intentBeat → titleCard` rather than `intentBeat → moonrise → titleCard`). Cosmetic only; conventions do not mandate alphabetical ordering of imports. No code change requested.
+- **Remaining gate:** browser feel-test (QA's pending human pass on the seven manual steps in `feel-test-protocol.md` § "The intent-beat test") — not a reviewer blocker, correctly flagged by QA.
+
+- **REVIEW_RESULT: APPROVED_WITH_NOTES**
+- **PR_NUMBER: N/A — direct commit 5c24258 on main**

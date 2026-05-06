@@ -111,6 +111,36 @@ Select-String -Path src/main.ts -Pattern 'SAVOUR_MIN_MS' -Quiet
 
 **Pass:** match returns True. **Fail:** match returns False — the held-success auto-advance is still acting as a forced cut and is a soft-compulsion drift (retrospective P1 #4; ethics perimeter via habit-formation). The press-attack-suppression gate (step 5 of the manual feel-test) is reviewed by code inspection at the same call-site rather than by static check, since `!wasGoalComplete` already appears unrelatedly at the goal-met edge detection.
 
+## The intent-beat test
+
+**Run after:** any cycle that touches `game/src/render/intentBeat.ts` or its `main.ts` wiring (closure-sprint day 4, P1 #5).
+
+**Why:** every night must offer a per-night affordance pulse between title-card fade-out and input-enable, so the player's eye lands on what the night is asking. Without it, N2 and N3 open into a silent bay with no diegetic "look here" beat — which would push the game toward tutorial overlays or text instructions, both perimeter violations. Suppressed on within-session re-entry so it doesn't become a tax for returning players.
+
+### Manual feel-test (after a code change to intent-beat)
+
+1. Hard-refresh the page. Clear localStorage. Trigger first-launch.
+2. **Test N1 affordance** — moonrise plays; title card holds 3s and fades; on title-card fade-out, no separate ring fires (the harbour ring's natural breathing IS the affordance). Confirm input is briefly gated (~1.5s) before pull responds, then pull works as today.
+3. **Test N2 affordance** — title card "Full moon. The bay fills." fades out; immediately a faint ring pulses at the lantern centroid (~880, 435), scale eases up and back over ~600ms, alpha 0 → 0.35 → 0. Input enables when pulse finishes.
+4. **Test N3 affordance** — title card "Waning gibbous. The lanterns are lit." fades out; a foam-stop ring expands from the east edge (1920, 540), radius 0 → 200 over ~800ms, alpha 0.4 → 0.
+5. **Test skip-on-press** — replay any night, tap during the affordance pulse. Pulse cancels, input enables immediately, no audio press-attack fires (the press signals "advance," not engage).
+6. **Test re-entry suppression** — complete N1 → enter N2 → return to picker → re-enter N2. Confirm the N2 ring does NOT fire the second time; harbour pulse on N1 still breathes as today (not affected by suppression — only the new ring is).
+7. **Test reduce-motion** — Windows reduce-motion ON. Replay each night fresh. N2 and N3 show a single static ring at peak alpha for ~200ms then disappear; no ease tween, no expansion. N1 still gates input briefly.
+
+**Pass:** all seven behaviours land cleanly.
+
+### Automatable regression check (code-level)
+
+The QA agent runs this static check from `C:\Dev\gameX\game\`:
+
+```powershell
+# The intent-beat module must exist and be wired into main.ts.
+Test-Path src/render/intentBeat.ts
+Select-String -Path src/main.ts -Pattern 'intentBeat' -Quiet
+```
+
+**Pass:** both commands return True. **Fail:** the affordance is unwired and N2/N3 open silently — closure-sprint P1 #5 regression.
+
 ## The clip-render test
 
 **Run after:** day 7 (trailer cut) and day 9 (verification).
