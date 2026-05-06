@@ -3,6 +3,7 @@ import {
   DAMPING_RATE,
   GRID_H,
   GRID_W,
+  HEIGHT_CAP,
   HEIGHT_PUMP,
   HOLD_FORCE_BASE,
   REST_HEIGHT,
@@ -56,7 +57,8 @@ export class FluidGrid {
         const i = y * GRID_W + x;
         this.vx[i] += dirX * force;
         this.vy[i] += dirY * force;
-        this.h[i] += falloff * pullStrength * HEIGHT_PUMP * dt;
+        const room = Math.max(0, HEIGHT_CAP - this.h[i]);
+        this.h[i] += falloff * pullStrength * HEIGHT_PUMP * room * dt;
       }
     }
   }

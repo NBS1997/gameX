@@ -19,6 +19,9 @@ export const SPRING = 30;
 export const DAMPING_RATE = 1.5;
 export const HOLD_FORCE_BASE = 60;
 export const HEIGHT_PUMP = 1.2;
+// Soft height cap: pump tapers as h approaches the cap so sustained holds
+// don't saturate the whole bay to the foam stop.
+export const HEIGHT_CAP = 1.55;
 
 // Five-stop water palette — height -> colour mapping.
 // Stops + palette must stay aligned in length and matched in index.
