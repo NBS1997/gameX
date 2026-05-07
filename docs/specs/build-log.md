@@ -1046,3 +1046,42 @@ Picking up the deferred-polish backlog from the discoverability pass:
 
 - **REVIEW_RESULT: APPROVED_WITH_NOTES** *(after blocker fixes at `b767057`)*
 - **PR_NUMBER: N/A — direct commits `85bfd18` (cursor-tether + literals) + `b767057` (reviewer-blocker fixes) on main**
+
+## Closure-sprint cycle 7 — N3 headland fire (P1 #6)
+
+### Closure-sprint cycle 7 Dev — N3 headland fire
+
+- **Built:**
+  - `game/src/level/types.ts` — added `AmbientDef { fire?: Vec2 }` interface and optional `ambient?: AmbientDef` field on `NightDelta`. The existing `BayBase.ambient: SpawnDef[]` field is unchanged (separate concerns).
+  - `game/levels/night-3.delta.json` — added `"ambient": { "fire": { "x": 1700, "y": 980 } }`. Night-1 and night-2 JSONs unchanged (field is optional).
+  - `game/src/audio/manager.ts` — added `lanternIgnitesFire()` to `AudioManager` interface and `createAudioManager()` return. Sine 1080Hz (880Hz N1 bell + 200Hz transposition per spec); envelope: peak 0.14 at 40ms (lower than goalMet's 0.22), decay to 0.001 at 600ms (shorter than goalMet's 1.4s); stop at 700ms. Guards `if (!ctx || !masterGain) return`.
+  - `game/src/render/headlandFire.ts` — new (~90 LoC). Strict idle → igniting → ignited state machine (no transitions back). Idle: low-alpha pulse at 1.2Hz ±0.15 depth. Igniting: 200ms ease-out cubic tween scaling 1.0→1.4 and alpha IDLE→0.95. Ignited: sustains at alpha 0.95, scale 1.4. Reduce-motion: skips all tweens/pulses; idle draws static disc at IDLE_BASE_ALPHA; igniting snaps immediately to ignited. Drawing: halo (radius×1.8, alpha×0.4, colour 0xffd966) + disc (radius 14, colour 0xff8a4a). Public interface: `{ container, setPosition, reset, setIgnited, update, isIgnited }`.
+  - `game/src/verbs/settle.ts` — extended `updateSend` with optional `fire?: { position: Vec2; isIgnited: () => boolean; onIgnite: () => void }` parameter. Inside the per-lantern loop, before the `hasCrossedEdge` check, fires `onIgnite()` when `!fire.isIgnited()` AND `position.x > 1600` AND `dist(position, fire.position) < 80`. Getter form (`isIgnited: () => boolean`) prevents in-frame snapshot double-fire. No audio or render imports — caller wires the callback.
+  - `game/src/main.ts` — six wiring changes: (1) import `createHeadlandFire`; (2) declare + mount `headlandFire.container` on `worldLayer` between `intentBeat.container` and `ambientLife.container`; (3) declare `fireIgnitedThisNight = false`; (4) in `enterNight`: reset `fireIgnitedThisNight = false`, call `headlandFire.reset()`, show/hide container per `night === 3`; (5) in ticker night branch: `headlandFire.update(dt)` when `currentNight === 3`; (6) `case 'send'` block constructs `fireArg` with getter `isIgnited: () => fireIgnitedThisNight` and `onIgnite` that flips the flag, calls `headlandFire.setIgnited()`, and calls `audio.lanternIgnitesFire()`.
+
+- **Files touched:** `game/src/level/types.ts`, `game/levels/night-3.delta.json`, `game/src/audio/manager.ts`, `game/src/render/headlandFire.ts` (new), `game/src/verbs/settle.ts`, `game/src/main.ts`, `docs/specs/build-log.md`.
+
+- **Verification:**
+  1. `npx tsc --noEmit` — exit 0. PASSED.
+  2. `npm run lint` — exit 0. PASSED.
+  3. `Test-Path src/render/headlandFire.ts` — True. PASSED.
+  4. `Select-String -Path src/audio/manager.ts -Pattern 'lanternIgnitesFire' -Quiet` — True. PASSED.
+  5. `Select-String -Path src/main.ts -Pattern 'headlandFire' -Quiet` — True. PASSED.
+  6. `Select-String -Path ../game/levels/night-3.delta.json -Pattern '"fire"' -Quiet` — True. PASSED.
+  7. `Select-String -Path src/level/types.ts -Pattern 'AmbientDef' -Quiet` — True. PASSED.
+  8. Cycles 1-6 regressions: OQ18 ✓, intentBeat.ts ✓, SAVOUR_MIN_MS ✓, prefersReducedMotion in moonrise.ts ✓, finalBell/fadeToSilence/restoreMaster in manager.ts ✓, cursorTether.ts exists ✓, cursorTrail.ts absent ✓, N3_FINAL_BELL in config.ts ✓.
+
+- **P3 cuts taken:** None.
+
+- **Out of scope:**
+  - **P1 #2 picker visual half** — cluster B, deferred to next cycle.
+  - **P1 #11 Steam draft** — deferred.
+  - **P1 #9 trailer** — user step; deferred.
+  - **P1 #10 stranger-test** — user step; deferred.
+
+- **Watch-outs:**
+  - (a) The proximity check uses BOTH `position.x > 1600` AND `dist < 80` per spec — both predicates must land. The east-side guard ensures a lantern bouncing around the west bay cannot accidentally ignite the fire.
+  - (b) `fire.isIgnited()` is a getter (not a snapshot boolean) — prevents double-fire if two lanterns simultaneously cross the proximity threshold in the same frame's for-loop iteration.
+  - (c) `headlandFire.reset()` is called in `enterNight` before `setPosition` — clears cross-night state (phase, pulsePhase, igniteElapsedMs) so N3 re-entry always starts with an idle disc.
+
+- **Commit:** `feat(headland-fire): N3 visual closure beat — captain cycle 7, P1 #6`

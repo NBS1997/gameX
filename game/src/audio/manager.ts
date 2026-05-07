@@ -30,6 +30,7 @@ export interface AudioManager {
   finalBell(): void;
   fadeToSilence(durationS: number): void;
   restoreMaster(rampS: number): void;
+  lanternIgnitesFire(): void;
 }
 
 export function createAudioManager(): AudioManager {
@@ -263,6 +264,22 @@ export function createAudioManager(): AudioManager {
     masterGain.gain.linearRampToValueAtTime(MASTER_GAIN, now + rampS);
   };
 
+  const lanternIgnitesFire = (): void => {
+    if (!ctx || !masterGain) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = 1080;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.14, now + 0.04);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+    osc.connect(gain);
+    gain.connect(masterGain);
+    osc.start(now);
+    osc.stop(now + 0.7);
+  };
+
   return {
     get started() {
       return started;
@@ -278,6 +295,7 @@ export function createAudioManager(): AudioManager {
     finalBell,
     fadeToSilence,
     restoreMaster,
+    lanternIgnitesFire,
   };
 }
 

@@ -38,12 +38,17 @@ export interface SendGoal {
 
 export type Goal = GuideGoal | GatherGoal | SendGoal;
 
+export interface AmbientDef {
+  fire?: Vec2;
+}
+
 export interface NightDelta {
   lunarPhase: LunarPhase;
   pullStrength: number;
   pullRadius: number;
   spawns: SpawnDef[];
   goal: Goal;
+  ambient?: AmbientDef;
 }
 
 export interface LevelDef {

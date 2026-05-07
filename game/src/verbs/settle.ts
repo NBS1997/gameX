@@ -7,15 +7,19 @@
 import { LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../config.ts';
 import { FluidGrid } from '../sim/fluid.ts';
 import { startSoftDrift, type GameState } from '../state/gameState.ts';
+import type { Vec2 } from '../level/types.ts';
 
 const FLOW_TO_VELOCITY = 6;
 const LANTERN_DRAG_RATE = 0.55;
 const OFFSCREEN_BACK_MARGIN = 60;
 
+const FIRE_PROXIMITY_RADIUS = 80;
+
 export function updateSend(
   state: GameState,
   grid: FluidGrid,
   dt: number,
+  fire?: { position: Vec2; isIgnited: () => boolean; onIgnite: () => void },
 ): void {
   if (state.level.night.goal.kind !== 'send') return;
   if (state.goalProgress.kind !== 'send') return;
@@ -42,6 +46,15 @@ export function updateSend(
       r.velocity.y *= dragFactor;
       r.position.x += r.velocity.x * dt;
       r.position.y += r.velocity.y * dt;
+
+      if (fire !== undefined && !fire.isIgnited()) {
+        const fdx = r.position.x - fire.position.x;
+        const fdy = r.position.y - fire.position.y;
+        const fdist = Math.sqrt(fdx * fdx + fdy * fdy);
+        if (r.position.x > 1600 && fdist < FIRE_PROXIMITY_RADIUS) {
+          fire.onIgnite();
+        }
+      }
 
       if (hasCrossedEdge(r.position, goal.edge, sentEdge)) {
         r.sent = true;

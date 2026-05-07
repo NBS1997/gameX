@@ -19,6 +19,7 @@ import type { NightNumber } from './level/types.ts';
 import { createAmbientLife } from './render/ambientLife.ts';
 import { makeCursorForPhase, type MoonCursor } from './render/cursor.ts';
 import { createCursorTether } from './render/cursorTether.ts';
+import { createHeadlandFire } from './render/headlandFire.ts';
 import { createEntityRenderer } from './render/entities.ts';
 import { renderGhosts } from './render/ghosts.ts';
 import { createHarbourRenderer } from './render/harbour.ts';
@@ -92,6 +93,9 @@ worldLayer.addChild(ghostLayer);
 const intentBeat = createIntentBeat();
 worldLayer.addChild(intentBeat.container);
 
+const headlandFire = createHeadlandFire();
+worldLayer.addChild(headlandFire.container);
+
 const ambientLife = createAmbientLife();
 worldLayer.addChild(ambientLife.container);
 
@@ -122,6 +126,7 @@ let releaseHoldMs = 0;
 let postCompleteMs = 0;
 let pendingFinalBell: ReturnType<typeof setTimeout> | null = null;
 let pendingFadeToSilence: ReturnType<typeof setTimeout> | null = null;
+let fireIgnitedThisNight = false;
 
 interface NightScene {
   kind: 'night';
@@ -209,9 +214,21 @@ app.ticker.add((ticker) => {
         case 'gather':
           updateGather(scene.state, grid, dt);
           break;
-        case 'send':
-          updateSend(scene.state, grid, dt);
+        case 'send': {
+          const sendFirePos = scene.state.level.night.ambient?.fire;
+          const fireArg = sendFirePos !== undefined ? {
+            position: sendFirePos,
+            isIgnited: () => fireIgnitedThisNight,
+            onIgnite: () => {
+              if (fireIgnitedThisNight) return;
+              fireIgnitedThisNight = true;
+              headlandFire.setIgnited();
+              audio.lanternIgnitesFire();
+            },
+          } : undefined;
+          updateSend(scene.state, grid, dt, fireArg);
           break;
+        }
       }
     }
 
@@ -229,6 +246,10 @@ app.ticker.add((ticker) => {
       range: scene.state.level.night.pullRadius * RECEIVER_PULL_RADIUS_MULTIPLIER,
       holdT,
     });
+
+    if (scene.state.currentNight === 3) {
+      headlandFire.update(dt);
+    }
 
     const goalNowComplete = isGoalComplete(scene.state);
     if (goalNowComplete && !wasGoalComplete) {
@@ -324,6 +345,8 @@ function enterNight(night: NightNumber): void {
   postCompleteMs = 0;
   wasGoalComplete = false;
   wasSoftDriftActive = false;
+  fireIgnitedThisNight = false;
+  headlandFire.reset();
 
   if (activeScene.kind === 'night') {
     worldLayer.removeChild(activeScene.entities.container);
@@ -333,6 +356,12 @@ function enterNight(night: NightNumber): void {
 
   const level = loadLevel(night);
   const state = createGameState(level, night);
+
+  const firePos = level.night.ambient?.fire;
+  headlandFire.container.visible = firePos !== undefined && night === 3;
+  if (firePos !== undefined && night === 3) {
+    headlandFire.setPosition(firePos);
+  }
 
   const ghosts = ghostsForNight(meta, night);
   ghostLayer.addChild(renderGhosts(ghosts));

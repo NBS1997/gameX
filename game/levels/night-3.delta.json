@@ -14,5 +14,6 @@
     "kind": "send",
     "edge": "east",
     "minCount": 4
-  }
+  },
+  "ambient": { "fire": { "x": 1700, "y": 980 } }
 }
