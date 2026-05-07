@@ -27,6 +27,9 @@ export interface AudioManager {
   softDriftSigh(): void;
   duckBed(amount: number, attackS: number): void;
   unduckBed(releaseS: number): void;
+  finalBell(): void;
+  fadeToSilence(durationS: number): void;
+  restoreMaster(rampS: number): void;
 }
 
 export function createAudioManager(): AudioManager {
@@ -227,6 +230,39 @@ export function createAudioManager(): AudioManager {
     noise.stop(now + 1.0);
   };
 
+  const finalBell = (): void => {
+    if (!ctx || !masterGain) return;
+    const now = ctx.currentTime;
+    // 880 Hz matches N1's goal-met bell — structural callback.
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = 880;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.22, now + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 1.4);
+    osc.connect(gain);
+    gain.connect(masterGain);
+    osc.start(now);
+    osc.stop(now + 1.5);
+  };
+
+  const fadeToSilence = (durationS: number): void => {
+    if (!ctx || !masterGain) return;
+    const now = ctx.currentTime;
+    masterGain.gain.cancelScheduledValues(now);
+    masterGain.gain.setValueAtTime(masterGain.gain.value, now);
+    masterGain.gain.linearRampToValueAtTime(0, now + durationS);
+  };
+
+  const restoreMaster = (rampS: number): void => {
+    if (!ctx || !masterGain) return;
+    const now = ctx.currentTime;
+    masterGain.gain.cancelScheduledValues(now);
+    masterGain.gain.setValueAtTime(masterGain.gain.value, now);
+    masterGain.gain.linearRampToValueAtTime(MASTER_GAIN, now + rampS);
+  };
+
   return {
     get started() {
       return started;
@@ -239,6 +275,9 @@ export function createAudioManager(): AudioManager {
     softDriftSigh,
     duckBed,
     unduckBed,
+    finalBell,
+    fadeToSilence,
+    restoreMaster,
   };
 }
 

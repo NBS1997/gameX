@@ -794,3 +794,29 @@ Picking up the deferred-polish backlog from the discoverability pass:
 
 - **REVIEW_RESULT: APPROVED_WITH_NOTES** *(after compression at `2375ec4`)*
 - **PR_NUMBER: N/A — direct commits `a9d1e2c` (gate) + `2375ec4` (comment compression) on main**
+
+## Closure-sprint cycle 5 — N3 closure beat (P1 #7)
+
+- **Built:** N3 fade-to-silence + final bell callback + master-gain restore.
+- **Files touched:**
+  - `game/src/audio/manager.ts` — added `finalBell()`, `fadeToSilence(durationS)`, `restoreMaster(rampS)` to the `AudioManager` interface and the `createAudioManager()` return object.
+  - `game/src/main.ts` — added `pendingFinalBell` + `pendingFadeToSilence` module-scope timeout holders; extended the goal-met rising-edge handler to schedule N3 closure beat (1500 ms final bell, 3500 ms fade start); added timeout-clear + `audio.restoreMaster(0.4)` at the top of `enterNight()` and `showPicker()`.
+- **Verification:**
+  1. `npx tsc --noEmit` — exit 0. PASSED.
+  2. `npm run lint` — exit 0. PASSED.
+  3. `Select-String -Path src/audio/manager.ts -Pattern 'finalBell' -Quiet` — True. PASSED.
+  4. `Select-String -Path src/audio/manager.ts -Pattern 'fadeToSilence' -Quiet` — True. PASSED.
+  5. `Select-String -Path src/audio/manager.ts -Pattern 'restoreMaster' -Quiet` — True. PASSED.
+  6. `Select-String -Path src/main.ts -Pattern 'finalBell' -Quiet` — True. PASSED.
+  7. `Select-String -Path src/main.ts -Pattern 'OQ18' -Quiet` — True (cycle-4 regression). PASSED.
+  8. `Test-Path src/render/intentBeat.ts` — True (cycle-3 regression). PASSED.
+  9. `Select-String -Path src/main.ts -Pattern 'SAVOUR_MIN_MS' -Quiet` — True (cycle-2 regression). PASSED.
+  10. `Select-String -Path src/render/moonrise.ts -Pattern 'prefersReducedMotion' -Quiet` — True (cycle-1 regression). PASSED.
+- **P3 cuts taken:** None. Audio-only change; no physics, level data, or render changes.
+- **Out of scope:**
+  - **P1 #6 — headland fire** — deferred; `verbs/settle.ts` untouched.
+  - **P2 #16 — picker-entry duck** — deferred; closure-sprint plan bundled it with day 6 but cycle 5's cluster-pick was strictly the closure beat.
+- **Watch-outs:**
+  - Timeout cleanup must happen before any subsequent night entry to avoid stale fades firing mid-play. Both `enterNight()` and `showPicker()` clear both timeouts at their tops before any scene mutation.
+  - `restoreMaster` must run only if `audio.started` to avoid touching a null masterGain. Both call-sites guard with `if (audio.started)`.
+- **Commit:** see `git log`.

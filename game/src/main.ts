@@ -124,6 +124,8 @@ let wasGoalComplete = false;
 let wasSoftDriftActive = false;
 let releaseHoldMs = 0;
 let postCompleteMs = 0;
+let pendingFinalBell: ReturnType<typeof setTimeout> | null = null;
+let pendingFadeToSilence: ReturnType<typeof setTimeout> | null = null;
 
 interface NightScene {
   kind: 'night';
@@ -227,6 +229,16 @@ app.ticker.add((ticker) => {
     if (goalNowComplete && !wasGoalComplete) {
       audio.goalMet();
       postCompleteMs = 0;
+      if (scene.state.currentNight === 3) {
+        pendingFinalBell = setTimeout(() => {
+          audio.finalBell();
+          pendingFinalBell = null;
+        }, 1500);
+        pendingFadeToSilence = setTimeout(() => {
+          audio.fadeToSilence(4);
+          pendingFadeToSilence = null;
+        }, 3500);
+      }
     }
     if (goalNowComplete) {
       postCompleteMs += ticker.deltaMS;
@@ -294,6 +306,15 @@ function applyReceiverAttraction(state: GameState, dt: number): void {
 
 function enterNight(night: NightNumber): void {
   picker.setVisible(false);
+  if (pendingFinalBell !== null) {
+    clearTimeout(pendingFinalBell);
+    pendingFinalBell = null;
+  }
+  if (pendingFadeToSilence !== null) {
+    clearTimeout(pendingFadeToSilence);
+    pendingFadeToSilence = null;
+  }
+  if (audio.started) audio.restoreMaster(0.4);
   postCompleteMs = 0;
   wasGoalComplete = false;
   wasSoftDriftActive = false;
@@ -340,6 +361,15 @@ function showPicker(): void {
     worldLayer.removeChild(activeScene.harbour.container);
   }
   ghostLayer.removeChildren();
+  if (pendingFinalBell !== null) {
+    clearTimeout(pendingFinalBell);
+    pendingFinalBell = null;
+  }
+  if (pendingFadeToSilence !== null) {
+    clearTimeout(pendingFadeToSilence);
+    pendingFadeToSilence = null;
+  }
+  if (audio.started) audio.restoreMaster(0.4);
   picker.setMeta(meta);
   picker.setVisible(true);
   worldLayer.scale.set(1);
