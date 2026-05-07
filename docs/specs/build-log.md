@@ -1450,5 +1450,5 @@ Belt-and-braces. The back-and-forth case (cross, drift back, cross again) is ful
 - **P3 cuts taken:** Cursor-tether 250ms fade-out (cycle-11 UX refinement #1) deferred — cursorTether has no fadeOut method; setEnabled(false) used directly. To be resolved in sub-cycle C feel-test polish.
 - **Out of scope:** intent-beat N4 path (sub-cycle C); motion-and-colour-bible N4 additions (sub-cycle C); Steam-page propagation (sub-cycle C).
 - **Watch-outs:** prevCursorPos captured at end of ticker after wasHolding update — velocity reads last-frame to this-frame, correct per plan wiring note. heronGoalMetThisNight resets in enterNight unconditionally. N4 closure chain reuses N3 timing constants (N3_FINAL_BELL_DELAY_MS etc.) — sub-cycle C may want N4-specific tuning. recoilCooldownUntil resets to 0 in heron.reset() called from enterNight — no cross-night leak confirmed.
-- **Commit:** TBD (updated after Task 10)
+- **Commit:** e9e4dfe
 
