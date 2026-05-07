@@ -1019,3 +1019,30 @@ Picking up the deferred-polish backlog from the discoverability pass:
 
 - **QA_RESULT: PASSED_WITH_NOTES** *(all 22 automatable checks pass; 8 manual feel-test steps pending human browser pass — primary empirical gates for P1 #8)*
 - **PR_NUMBER: N/A — direct commit 85bfd18 on main**
+
+### Closure-sprint cycle 6 Review — cursor-tether + N3 literals
+
+- **Verdict (initial):** CHANGES_REQUESTED — two blocking issues:
+  1. **State leak bug.** `cursorTether.setEnabled(false)` fires every frame in the ticker's non-night `else` branch, but `enterNight()` never calls `setEnabled(true)`. Result: any session that visits the picker (returning players on launch, post-completion routing through the picker) loses the tether for the rest of the session — `enabled` flips to false on the first non-night frame and is never restored.
+  2. **Dead `prefersReducedMotion()` call.** Line 41 of `cursorTether.ts` called the function and discarded the return value, with a 4-line comment explaining "both paths are identical geometry." The 4-line block exceeded conventions §131 single-line cap; the call itself was misleading (every future reader would wonder if a branch was missed). The reduce-motion spec requirement is already satisfied by the per-frame clear+redraw architecture without any runtime check.
+- **Verdict (after fixes):** APPROVED.
+- **Reviewer:** reviewer agent, against `85bfd18` on `main`.
+- **Resolution:** orchestrator applied both fixes in-session (commit `b767057`):
+  1. Added `cursorTether.setEnabled(true)` at the top of `enterNight()` alongside the cycle-5 audio.restoreMaster cleanup. Restores the tether on every night entry.
+  2. Removed the `prefersReducedMotion()` call, the 4-line comment block, AND the now-unused import from `cursorTether.ts`. The reduce-motion spec is satisfied without any runtime check (per-frame redraw is idempotent under either OS setting).
+- **Spec fit (cursor-tether):** alpha formula `0.3 * holdT * (1 - dist/range)` exact; foam-stop colour `0xa8b5cc`; 2px stroke; mounted on `uiLayer`; `!receiver.sent` filter present; reduce-motion behaviour now correctly handled by architecture rather than a discarded check.
+- **Spec fit (literals extraction):** all four literals replaced with named constants `N3_FINAL_BELL_DELAY_MS`, `N3_FADE_TO_SILENCE_DELAY_MS`, `N3_FADE_TO_SILENCE_DURATION_S`, `MASTER_RESTORE_RAMP_S` in `config.ts`. No leftover inline literals at scheduler or `restoreMaster` call-sites. Cycle-5 follow-up fully closed.
+- **Stack discipline:** zero `any`; `cursorTether.ts` imports limited to `pixi.js` + `'../state/gameState.ts'` (the unused `reduceMotion.ts` import was correctly removed in the fix); no new runtime deps.
+- **Wiring correctness (post-fix):** `cursorTrail` does not appear anywhere in `game/src/`. `cursorTether.update(...)` inside `activeScene.kind === 'night'` branch with correct receivers + range + holdT inputs. `holdT` hoisted above the branch — in scope for both the tether and `cursor.setHoldStrength`. Range computed via the existing `pullRadius * RECEIVER_PULL_RADIUS_MULTIPLIER` pattern. The `setEnabled(false)` in the else-branch + `setEnabled(true)` in `enterNight` keeps the strand cleared at the picker and live during night-scenes, which is the right shape after the fix.
+- **State leak (post-fix):** `enabled` flag is now correctly toggled true/false based on scene kind. `Graphics.clear()` runs every `update()` call regardless of `enabled` — no stale strand can persist across frames.
+- **No-comment policy compliance:** post-fix, `cursorTether.ts` has zero comments. Clean.
+- **Ethics ban list:** clean. Diff is render-and-config-only.
+- **A11y:** reduce-motion spec satisfied architecturally — per-frame clear+redraw is identical under either OS setting; no fade-in tween to suppress.
+- **No regressions:** cycles 1-5 fixes all confirmed intact post-fix.
+- **Notes (no further code change requested):**
+  1. **Config.ts existing comment style.** The new constants block has a 4-line comment header — consistent with the pre-existing multi-line tunable-documentation style throughout `config.ts` (`WATER_STOPS`, `RECEIVER_DIRECT_PULL`, etc.). Conventions §131 says "one short line max" but the file's existing pattern treats config tunables as an exception. Not introduced by this PR; flagged for a future consistency pass if anyone wants to bring `config.ts` into line.
+  2. **Mid-cycle blocker resolution shape.** Both blockers were fixed in-session by the orchestrator (not re-dispatched to dev-agent) since they were small (one wiring line, one dead-code removal). Same pattern as cycle 4's comment-compression iteration. Recording for traceability — future cycles where a reviewer-flagged blocker is small enough to fix orchestrator-side may follow this pattern; larger blockers should re-dispatch the dev-agent.
+- **Remaining gate:** browser feel-test (QA's pending human pass on the eight cursor-tether feel-test steps in `feel-test-protocol.md`) — primary empirical gate for the felt-quality of the tether.
+
+- **REVIEW_RESULT: APPROVED_WITH_NOTES** *(after blocker fixes at `b767057`)*
+- **PR_NUMBER: N/A — direct commits `85bfd18` (cursor-tether + literals) + `b767057` (reviewer-blocker fixes) on main**

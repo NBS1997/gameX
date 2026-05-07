@@ -203,6 +203,53 @@ Select-String -Path src/main.ts -Pattern 'finalBell' -Quiet
 
 **Pass:** all four return True. **Fail:** any returns False — the closure beat is unwired and N3 ends with the same beat as N1/N2; the kishōtenketsu third-act resolution is missing (closure-sprint P1 #7 regression).
 
+## The cursor-tether test
+
+**Run after:** any cycle that touches `game/src/render/cursorTether.ts` or its `main.ts` wiring (closure-sprint day-2 second half, P1 #8).
+
+**Why:** the wedge clause is "moon pulls water → water pulls things." The cursor-tether is the *visible* proof of mediation between the cursor (moon) and the receivers (boats, lanterns) during a hold — a soft per-frame line whose alpha grows with hold-onset and decays with cursor-receiver distance. Replaces the placeholder cursor-trail (decorative dots that don't communicate the verb). Trailer (P1 #9) cannot record honestly without this — a muted-autoplay viewer needs to *see* the link to read the wedge.
+
+### Manual feel-test (after a code change to cursor-tether)
+
+1. Hard-refresh the page. Clear localStorage. Play any night.
+2. **Test tether-on-hold.** Press-and-hold near a receiver within pull range. Confirm a soft foam-stop shimmer line draws from the cursor centre to the in-range receiver. Alpha grows over the 200–400ms hold-onset ramp.
+3. **Test alpha decays with distance.** Move the cursor away from the receiver while still holding (within range). Confirm the tether's alpha decreases as distance grows (`0.3 * holdT * (1 - dist/range)`).
+4. **Test out-of-range disappearance.** Move the cursor outside the pull range while still holding. Confirm the tether disappears (alpha = 0). When you re-enter range, it reappears.
+5. **Test multi-receiver.** On N2 (8 lanterns) or N3 (6 lanterns), with multiple receivers in range, confirm the tether either chooses the nearest receiver OR draws to all in-range receivers (per spec — verify implementation choice). No flicker between receivers when the cursor moves slowly.
+6. **Test release behaviour.** Release the mouse. Confirm the tether disappears immediately (next frame). The release-snapback is the visual payoff; the tether should NOT compete with it.
+7. **Test reduce-motion swap.** Windows reduce-motion ON. Replay the hold. Confirm the tether is either omitted entirely OR a static line at the same alpha (per spec implementation), with no fade-in tween.
+8. **Test no leftover cursor-trail.** Confirm no decorative dot-trail follows the cursor anywhere in the slice. The old `cursorTrail.ts` placeholder must be gone from the build.
+
+**Pass:** all eight behaviours land cleanly.
+
+### Automatable regression check (code-level)
+
+The QA agent runs these static checks from `C:\Dev\gameX\game\`:
+
+```powershell
+# P1 #8: cursorTether replaces cursorTrail. The tether file exists; the trail does not.
+Test-Path src/render/cursorTether.ts
+Select-String -Path src/main.ts -Pattern 'cursorTether' -Quiet
+# Negative checks — these MUST be False after the fix.
+Test-Path src/render/cursorTrail.ts
+Select-String -Path src/main.ts -Pattern 'cursorTrail' -Quiet
+```
+
+**Pass:** first two return True; last two return False. **Fail:** if `cursorTrail.ts` still exists or `cursorTrail` still appears in `main.ts`, the placeholder is shipping (closure-sprint day-2 second-half regression; trailer P1 #9 will record the wrong wedge legibility).
+
+### Cycle-5 feel-tuning literals — config.ts extraction
+
+Bundled with cycle 6 per reviewer's cycle-5 non-blocking suggestion: the `1500`, `3500`, `4`, and `0.4` feel-tuning literals from cycle 5's N3 closure scheduler should now live as named constants in `config.ts`.
+
+```powershell
+# Feel-tuning literals must be named constants in config.ts.
+Select-String -Path src/config.ts -Pattern 'N3_FINAL_BELL' -Quiet
+Select-String -Path src/config.ts -Pattern 'N3_FADE_TO_SILENCE' -Quiet
+Select-String -Path src/config.ts -Pattern 'MASTER_RESTORE_RAMP' -Quiet
+```
+
+**Pass:** all three return True. **Fail:** the literals still live inline in `main.ts`, contradicting conventions §"all tunables in config.ts."
+
 ## The clip-render test
 
 **Run after:** day 7 (trailer cut) and day 9 (verification).
