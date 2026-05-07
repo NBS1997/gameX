@@ -6,12 +6,15 @@ const FULL_FILL = 0xfffcec;
 const FULL_HALO = 0xffe9bc;
 const WANING_FILL = 0xe9e1d0;
 const WANING_SHADOW = 0x3a3636;
+const LAST_QUARTER_FILL = 0xe7ddc8;
+const LAST_QUARTER_SHADOW = 0x2c2a26;
 const RING_COLOUR = 0xa8b5cc;
 
 const PULL_RADII: Record<LunarPhase, number> = {
   'waxing-crescent': 80,
   full: 140,
   'waning-gibbous': 110,
+  'last-quarter': 95,
 };
 
 export interface MoonCursor {
@@ -40,6 +43,10 @@ export function makeCursorForPhase(phase: LunarPhase): MoonCursor {
     case 'waning-gibbous':
       disc.circle(0, 0, 28).fill(WANING_FILL);
       disc.circle(8, 0, 22).fill({ color: WANING_SHADOW, alpha: 0.55 });
+      break;
+    case 'last-quarter':
+      disc.circle(0, 0, 26).fill(LAST_QUARTER_FILL);
+      disc.circle(-8, 0, 22).fill({ color: LAST_QUARTER_SHADOW, alpha: 0.55 });
       break;
   }
   container.addChild(disc);

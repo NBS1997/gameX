@@ -15,7 +15,7 @@ import {
 } from './config.ts';
 import { createPointerState } from './input/pointer.ts';
 import { loadLevel } from './level/loader.ts';
-import type { NightNumber } from './level/types.ts';
+import type { LunarPhase, NightNumber } from './level/types.ts';
 import { createAmbientLife } from './render/ambientLife.ts';
 import { makeCursorForPhase, type MoonCursor } from './render/cursor.ts';
 import { createCursorTether } from './render/cursorTether.ts';
@@ -143,7 +143,7 @@ type ActiveScene = { kind: 'none' } | { kind: 'picker' } | NightScene;
 // first-playthrough linear-ordering design.
 const nightParam = new URLSearchParams(window.location.search).get('night');
 const overrideNight: NightNumber | null =
-  nightParam === '1' ? 1 : nightParam === '2' ? 2 : nightParam === '3' ? 3 : null;
+  nightParam === '1' ? 1 : nightParam === '2' ? 2 : nightParam === '3' ? 3 : nightParam === '4' ? 4 : null;
 
 if (overrideNight) {
   enterNight(overrideNight);
@@ -229,6 +229,9 @@ app.ticker.add((ticker) => {
           updateSend(scene.state, grid, dt, fireArg);
           break;
         }
+        case 'still':
+          // Sub-cycle A: mechanically inert; updateWithhold lands in sub-cycle B.
+          break;
       }
     }
 
@@ -432,11 +435,12 @@ function isGoalComplete(state: GameState): boolean {
   return (
     (state.goalProgress.kind === 'guide' && state.goalProgress.complete) ||
     (state.goalProgress.kind === 'gather' && state.goalProgress.complete) ||
-    (state.goalProgress.kind === 'send' && state.goalProgress.complete)
+    (state.goalProgress.kind === 'send' && state.goalProgress.complete) ||
+    (state.goalProgress.kind === 'still' && state.goalProgress.complete)
   );
 }
 
-function currentLunarPhase(): 'waxing-crescent' | 'full' | 'waning-gibbous' {
+function currentLunarPhase(): LunarPhase {
   if (activeScene.kind === 'night') {
     return activeScene.state.level.night.lunarPhase;
   }

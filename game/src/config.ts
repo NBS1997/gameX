@@ -49,7 +49,7 @@ interface RGB {
 }
 
 export const WATER_PALETTES: Record<
-  'waxing-crescent' | 'full' | 'waning-gibbous',
+  'waxing-crescent' | 'full' | 'waning-gibbous' | 'last-quarter',
   readonly RGB[]
 > = {
   // Waxing crescent: the canonical palette — cool, intimate, slightly cooler.
@@ -75,6 +75,14 @@ export const WATER_PALETTES: Record<
     { r: 0x30, g: 0x3d, b: 0x58 },
     { r: 0x53, g: 0x60, b: 0x7d },
     { r: 0xae, g: 0xb8, b: 0xce },
+  ],
+  // Last quarter: compressed-toward-deep per N4 design memo; darkest of the four.
+  'last-quarter': [
+    { r: 0x0e, g: 0x17, b: 0x22 },
+    { r: 0x17, g: 0x21, b: 0x32 },
+    { r: 0x27, g: 0x33, b: 0x4d },
+    { r: 0x46, g: 0x55, b: 0x6f },
+    { r: 0xa8, g: 0xb5, b: 0xcc },
   ],
 };
 

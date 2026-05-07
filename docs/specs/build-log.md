@@ -1290,3 +1290,41 @@ Belt-and-braces. The back-and-forth case (cross, drift back, cross again) is ful
 
 - **REVIEW_RESULT: APPROVED_WITH_NOTES**
 - **PR_NUMBER: N/A — direct commits `0fe7cc3` + `2b98cf7` on main**
+
+## Captain cycle 10 — N4 schema scaffolding (forward-feature-1 sub-cycle A)
+
+### Cycle 10 — 2026-05-07
+
+- **Built:**
+  - **N4 schema scaffolding (sub-cycle A of forward-feature-1).** First captain cycle running the full NEW_FEATURE stack — substitution chain established in cycles 5-9 was exhausted, so brainstorming + slim council ran fresh. Six-specialist slim council synthesised into `docs/specs/forward-feature-1.md`; pm decomposed into three sub-cycles (A: schema scaffolding [this cycle]; B: verb + render module + audio; C: intent-beat + polish). N4 is **last-quarter, the withhold night** — heron at the eastern foam line, stillness verb, kishōtenketsu kyū. Sub-cycle A ships the schema cleanly and N4 loads but is mechanically inert; the verb and heron render module land in sub-cycle B.
+  - Type extensions: `LunarPhase` += `'last-quarter'`, `GoalKind` += `'still'`, new `StillGoal` interface, `Goal` union extended, `NightNumber` extended to `1 | 2 | 3 | 4`, `AmbientDef` += `heron?: Vec2`.
+  - Level data: new `game/levels/night-4.delta.json` (`pullStrength: 0.75`, `pullRadius: 95`, empty spawns, `goal.kind: 'still'` with placeholder feel-tuning constants `proximityRadius: 220 / hardRadius: 90 / dwellSeconds: 2.22`, ambient heron at `(1700, 880)` — eastern foam line, sharing the spatial axis of N3's headland fire).
+  - Loader: registers `night-4.delta.json` at `nights[4]`.
+  - Save schema bump v2 → v3 with backwards-compatible migration: read order is v3 → v2 → v1 → empty; v2 lifts shape unchanged (no field changes between v2 and v3); v1 still reachable; quota / disabled storage stays non-fatal per the existing `try`/`catch` pattern.
+  - `meta.ts`: `size === 3` extends to `size === 4` (`freeReentry` gate); `nextLinearNight` extends to chain 1 → 2 → 3 → 4.
+  - `gameState.ts`: `GoalProgress` union extended with `{ kind: 'still'; dwellT: number; complete: boolean }`; `initialGoalProgress` and `recoverFromSoftDrift` extended with `still` cases.
+  - Verb-switch in `main.ts`: `case 'still':` no-op branch added for TypeScript exhaustiveness; one short comment line within conventions §131. `isGoalComplete` extended; `currentLunarPhase` return type widened to `LunarPhase`; `overrideNight` URL param extended to support `?night=4`.
+  - Cursor: `last-quarter` glyph variant added — half-disc with leading-hemisphere shadow (opposite of N3's trailing-hemisphere shadow), 26 px disc, `#e7ddc8` fill, `#2c2a26` shadow, pull-radius 95 px.
+  - Picker: 4 slots from launch (`[1, 2, 3, 4]`); centring `(idx - 1.5) * SLOT_SPACING`; `NIGHT_PHASES[4] = 'last-quarter'`; `isNightSelectable` linear-gate extended with explicit `night === 3` clause.
+  - Title card: `'last-quarter': 'Last quarter.  The bay holds what was given.'` added to `TITLE_STRINGS` (storyboarder line, two-space inter-sentence spacing matching existing pattern).
+  - Audio/config/water deviations (see Watch-outs): `PHASE_CUTOFF` and `PHASE_BED_GAIN` in `audio/manager.ts` extended with `'last-quarter'` entries; `WATER_PALETTES` in `config.ts` extended with `'last-quarter'` palette (compressed-toward-deep per N4 design memo); `water.ts` implicitly fixed by `config.ts` extension.
+- **Files touched:** `game/src/level/types.ts`, `game/src/level/loader.ts`, `game/levels/night-4.delta.json` (new), `game/src/state/save.ts`, `game/src/state/meta.ts`, `game/src/state/gameState.ts`, `game/src/main.ts`, `game/src/render/cursor.ts`, `game/src/scenes/nightPicker.ts`, `game/src/render/titleCard.ts`, `game/src/audio/manager.ts`, `game/src/config.ts`, `docs/specs/feel-test-protocol.md`, `docs/specs/build-log.md` (this entry).
+- **Verification:**
+  1. `npx tsc --noEmit` — exit 0.
+  2. `npm run lint` — exit 0.
+  3. Cycle-10 automatable static checks (Task 11 list, items 1–9) — all True (22/22).
+  4. Cycles 1–9 regression checks — all True except the pre-existing false-negative on the `"'intentBeat'"` pattern (see Watch-outs).
+  5. Ethics-perimeter sweep — clean (no new analytics, no new outbound network, localStorage only references `neap/save/v3` + `neap/save/v2` + `tide-pull/save/v1`, no new runtime deps).
+- **P3 cuts taken:** None.
+- **Out of scope (sub-cycle A — explicitly NOT touched):**
+  - `game/src/verbs/withhold.ts` (sub-cycle B).
+  - `game/src/render/heron.ts` (sub-cycle B).
+  - `game/src/audio/manager.ts` heron chime (sub-cycle B — the `last-quarter` audio tuning values added here are infrastructure, not the heron chime).
+  - `game/src/render/intentBeat.ts` N4 path (sub-cycle C).
+  - `motion-and-colour-bible.md` swap-table additions (sub-cycle C).
+- **Watch-outs:**
+  - **Plan deviation — additional files:** The plan listed `audio/manager.ts` as out-of-scope, but extending `LunarPhase` caused TypeScript exhaustiveness errors in `PHASE_CUTOFF` and `PHASE_BED_GAIN` records. Both required `'last-quarter'` entries (cutoff `1100`, bed gain `0.88×`). Similarly, `config.ts` `WATER_PALETTES` required a `'last-quarter'` entry to satisfy the `Record<LunarPhase, ...>` type. These are infrastructure values matching the N4 design memo palette; no audio logic changed. Flagged here for reviewer attention.
+  - The `goal.kind === 'still'` no-op branch in `main.ts` means N4 cannot complete in sub-cycle A. This is correct and is tested manually in feel-test step 6. Sub-cycle B's `updateWithhold` call replaces the no-op.
+  - The `dwellSeconds: 2.22` constant in `night-4.delta.json` is a placeholder feel-tuning value. Sub-cycle B's feel-test will tune.
+  - Pre-existing regression false-negative: the feel-test-protocol cycle-3 check `Select-String -Path src/main.ts -Pattern "'intentBeat'" -Quiet` returns False because the string `'intentBeat'` (with quotes) does not appear in `main.ts` — the import uses `'./render/intentBeat.ts'`. This was false before cycle 10 (pattern bug, not a code regression). Not introduced by this cycle.
+  - `isNightSelectable` in the plan had the `night === 3` branch implicit in the final `return`; this cycle made it explicit for clarity and correctness with the four-way chain.

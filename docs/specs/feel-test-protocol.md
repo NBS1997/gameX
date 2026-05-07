@@ -380,3 +380,76 @@ If both pass, the slice is shippable. If either fails, the failure goes in build
   - [ ] {test name from this protocol}
   - [ ] ...
 ```
+
+## The N4 schema-only test (sub-cycle A — schema lands; verb is sub-cycle B)
+
+**Automatable static checks** (run from `game/`):
+
+```powershell
+# 1. Schema files exist and parse.
+Test-Path levels/night-4.delta.json                                              # -> True
+node -e "JSON.parse(require('fs').readFileSync('levels/night-4.delta.json','utf8'))"  # -> no throw
+
+# 2. Type extensions present.
+Select-String -Path src/level/types.ts -Pattern "'last-quarter'" -Quiet           # -> True
+Select-String -Path src/level/types.ts -Pattern "'still'" -Quiet                  # -> True
+Select-String -Path src/level/types.ts -Pattern "StillGoal" -Quiet                # -> True
+Select-String -Path src/level/types.ts -Pattern "1 \| 2 \| 3 \| 4" -Quiet         # -> True
+Select-String -Path src/level/types.ts -Pattern "heron\?: Vec2" -Quiet            # -> True
+
+# 3. Loader registration.
+Select-String -Path src/level/loader.ts -Pattern "night-4.delta.json" -Quiet      # -> True
+Select-String -Path src/level/loader.ts -Pattern "4: night4Json" -Quiet           # -> True
+
+# 4. Save schema v3.
+Select-String -Path src/state/save.ts -Pattern "'neap/save/v3'" -Quiet            # -> True
+Select-String -Path src/state/save.ts -Pattern "'neap/save/v2'" -Quiet            # -> True (legacy key reference)
+Select-String -Path src/state/save.ts -Pattern "version: 3" -Quiet                # -> True
+Select-String -Path src/state/save.ts -Pattern "n === 4" -Quiet                   # -> True
+
+# 5. Meta state.
+Select-String -Path src/state/meta.ts -Pattern "size === 4" -Quiet                # -> True
+Select-String -Path src/state/meta.ts -Pattern "completedNights.has\(4\)" -Quiet  # -> True
+
+# 6. Picker scaffolding.
+Select-String -Path src/scenes/nightPicker.ts -Pattern "1, 2, 3, 4" -Quiet        # -> True
+Select-String -Path src/scenes/nightPicker.ts -Pattern "'last-quarter'" -Quiet    # -> True
+Select-String -Path src/scenes/nightPicker.ts -Pattern "idx - 1.5" -Quiet         # -> True
+
+# 7. Cursor + title-card additions.
+Select-String -Path src/render/cursor.ts -Pattern "'last-quarter'" -Quiet         # -> True
+Select-String -Path src/render/titleCard.ts -Pattern "'last-quarter'" -Quiet      # -> True
+Select-String -Path src/render/titleCard.ts -Pattern "Last quarter" -Quiet        # -> True
+
+# 8. Verb-switch exhaustiveness no-op for 'still'.
+Select-String -Path src/main.ts -Pattern "case 'still'" -Quiet                    # -> True
+
+# 9. GoalProgress union extended + initialGoalProgress + recoverFromSoftDrift cover 'still'.
+Select-String -Path src/state/gameState.ts -Pattern "kind: 'still'" -Quiet        # -> True
+
+# 10. tsc + lint clean.
+npx tsc --noEmit                                                                   # -> exit 0
+npm run lint                                                                       # -> exit 0
+```
+
+**Manual feel-test steps** (browser, run `npm run dev` from `game/`):
+
+1. Fresh tab, clear `localStorage`, reload. Picker shows **four slots** (waxing-crescent / full / waning-gibbous / last-quarter glyphs). No padlocks. No badges. Slots are symmetrically centred around the screen midpoint.
+2. Press the N4 slot. Routing falls back to N1 (linear gate). N1 plays normally.
+3. Complete N1, N2, N3 in order. After N3 completes, picker shows N4 selectable.
+4. Press the N4 slot. Title card reads exactly **"Last quarter.  The bay holds what was given."** (two spaces between sentences). Card holds 3000 ms then fades.
+5. After title fades, the cursor displays the **last-quarter half-disc** glyph (leading hemisphere shadowed; opposite of N3's trailing-hemisphere shadow). Pull-radius ring is 95 px.
+6. Press-and-hold pulls water with strength 0.75x (gentlest of the four). The water responds; nothing else happens. The bay is empty (no boats, no lanterns). **The night never completes** — this is correct for sub-cycle A; the heron + verb land in sub-cycle B.
+7. Press the browser back-button or refresh. Save is written under `localStorage['neap/save/v3']` (DevTools -> Application -> localStorage). `version: 3` field present. `completedNights` includes 1, 2, 3 (not 4 — N4 didn't complete because the verb is inert).
+8. **v2 -> v3 migration check.** Open DevTools console, run:
+   ```js
+   localStorage.clear();
+   localStorage.setItem('neap/save/v2', JSON.stringify({
+     version: 2,
+     completedNights: [1, 2],
+     freeReentry: false,
+     ghosts: [{ night: 1, type: 'boat', x: 1700, y: 540 }],
+   }));
+   ```
+   Reload the tab. Picker shows N3 selectable, ghost silhouettes render for N1 at the picker (cycle-9 pattern), and `localStorage['neap/save/v3']` exists with the migrated data; `localStorage['neap/save/v2']` is left in place defensively.
+9. **Reduce-motion check (no behaviour change for sub-cycle A).** OS reduce-motion ON, repeat steps 1–6. The picker, cursor, title-card, and water-pull behaviours are unchanged from existing nights — sub-cycle A introduces no new motion.

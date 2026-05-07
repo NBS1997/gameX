@@ -23,7 +23,8 @@ export type GoalProgress =
       clusterMs: number;
       complete: boolean;
     }
-  | { kind: 'send'; sentCount: number; complete: boolean };
+  | { kind: 'send'; sentCount: number; complete: boolean }
+  | { kind: 'still'; dwellT: number; complete: boolean };
 
 export interface SoftDriftState {
   active: boolean;
@@ -73,6 +74,8 @@ function initialGoalProgress(kind: GoalKind): GoalProgress {
       return { kind: 'gather', clusterCount: 0, clusterMs: 0, complete: false };
     case 'send':
       return { kind: 'send', sentCount: 0, complete: false };
+    case 'still':
+      return { kind: 'still', dwellT: 0, complete: false };
   }
 }
 
@@ -102,5 +105,8 @@ export function recoverFromSoftDrift(state: GameState): void {
   }
   if (state.goalProgress.kind === 'send') {
     state.goalProgress.sentCount = 0;
+  }
+  if (state.goalProgress.kind === 'still') {
+    state.goalProgress.dwellT = 0;
   }
 }

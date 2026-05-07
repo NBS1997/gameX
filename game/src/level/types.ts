@@ -1,6 +1,6 @@
-export type LunarPhase = 'waxing-crescent' | 'full' | 'waning-gibbous';
+export type LunarPhase = 'waxing-crescent' | 'full' | 'waning-gibbous' | 'last-quarter';
 export type ReceiverType = 'boat' | 'lantern';
-export type GoalKind = 'guide' | 'gather' | 'send';
+export type GoalKind = 'guide' | 'gather' | 'send' | 'still';
 
 export interface Vec2 {
   x: number;
@@ -36,10 +36,18 @@ export interface SendGoal {
   minCount: number;
 }
 
-export type Goal = GuideGoal | GatherGoal | SendGoal;
+export interface StillGoal {
+  kind: 'still';
+  proximityRadius: number;
+  hardRadius: number;
+  dwellSeconds: number;
+}
+
+export type Goal = GuideGoal | GatherGoal | SendGoal | StillGoal;
 
 export interface AmbientDef {
   fire?: Vec2;
+  heron?: Vec2;
 }
 
 export interface NightDelta {
@@ -56,4 +64,4 @@ export interface LevelDef {
   night: NightDelta;
 }
 
-export type NightNumber = 1 | 2 | 3;
+export type NightNumber = 1 | 2 | 3 | 4;

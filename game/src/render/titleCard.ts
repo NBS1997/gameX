@@ -10,6 +10,7 @@ const TITLE_STRINGS: Record<LunarPhase, string> = {
   'waxing-crescent': 'Waxing crescent.  The harbour is restless tonight.',
   full: 'Full moon.  The bay fills.',
   'waning-gibbous': 'Waning gibbous.  The lanterns are lit.',
+  'last-quarter': 'Last quarter.  The bay holds what was given.',
 };
 
 type Phase = 'idle' | 'fade-in' | 'hold' | 'fade-out';

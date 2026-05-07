@@ -67,7 +67,7 @@ export function recordNightComplete(
     });
   }
 
-  if (meta.completedNights.size === 3) {
+  if (meta.completedNights.size === 4) {
     meta.freeReentry = true;
   }
 }
@@ -76,6 +76,7 @@ export function nextLinearNight(meta: MetaState): NightNumber | null {
   if (!meta.completedNights.has(1)) return 1;
   if (!meta.completedNights.has(2)) return 2;
   if (!meta.completedNights.has(3)) return 3;
+  if (!meta.completedNights.has(4)) return 4;
   return null;
 }
 

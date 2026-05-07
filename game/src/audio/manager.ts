@@ -9,12 +9,14 @@ const PHASE_CUTOFF: Record<LunarPhase, number> = {
   'waxing-crescent': 800,
   full: 2000,
   'waning-gibbous': 1400,
+  'last-quarter': 1100,
 };
 
 const PHASE_BED_GAIN: Record<LunarPhase, number> = {
   'waxing-crescent': BED_GAIN * 0.85,
   full: BED_GAIN * 1.1,
   'waning-gibbous': BED_GAIN * 0.95,
+  'last-quarter': BED_GAIN * 0.88,
 };
 
 export interface AudioManager {

@@ -20,6 +20,7 @@ const NIGHT_PHASES: Record<NightNumber, LunarPhase> = {
   1: 'waxing-crescent',
   2: 'full',
   3: 'waning-gibbous',
+  4: 'last-quarter',
 };
 
 export interface NightPicker {
@@ -36,9 +37,9 @@ export function createNightPicker(
 
   const slots: { container: Container; night: NightNumber; ghostContainer: Container }[] = [];
 
-  ([1, 2, 3] as NightNumber[]).forEach((night, idx) => {
+  ([1, 2, 3, 4] as NightNumber[]).forEach((night, idx) => {
     const slot = new Container();
-    slot.position.set((idx - 1) * SLOT_SPACING, 0);
+    slot.position.set((idx - 1.5) * SLOT_SPACING, 0);
     slot.pivot.set(0, 0);
     const ghostContainer = new Container();
     slot.addChild(ghostContainer);
@@ -95,7 +96,8 @@ function isNightSelectable(night: NightNumber, meta: MetaState): boolean {
   if (meta.completedNights.has(night)) return false;
   if (night === 1) return true;
   if (night === 2) return meta.completedNights.has(1);
-  return meta.completedNights.has(2);
+  if (night === 3) return meta.completedNights.has(2);
+  return meta.completedNights.has(3);
 }
 
 function collectGhostsByNight(

@@ -1,0 +1,13 @@
+{
+  "lunarPhase": "last-quarter",
+  "pullStrength": 0.75,
+  "pullRadius": 95,
+  "spawns": [],
+  "goal": {
+    "kind": "still",
+    "proximityRadius": 220,
+    "hardRadius": 90,
+    "dwellSeconds": 2.22
+  },
+  "ambient": { "heron": { "x": 1700, "y": 880 } }
+}
