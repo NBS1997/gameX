@@ -820,3 +820,96 @@ Picking up the deferred-polish backlog from the discoverability pass:
   - Timeout cleanup must happen before any subsequent night entry to avoid stale fades firing mid-play. Both `enterNight()` and `showPicker()` clear both timeouts at their tops before any scene mutation.
   - `restoreMaster` must run only if `audio.started` to avoid touching a null masterGain. Both call-sites guard with `if (audio.started)`.
 - **Commit:** see `git log`.
+
+### Closure-sprint cycle 5 QA — N3 closure beat
+
+- **Automatable acceptance: 14/14 criteria passed via code/static checks**
+
+  Toolchain:
+  1. npx tsc --noEmit — exit 0. PASSED.
+  2. npm run lint — exit 0. PASSED.
+
+  Cycle-5 static checks (feel-test-protocol.md § 'The N3 closure-callback test'):
+  3. Select-String -Path src/audio/manager.ts -Pattern 'finalBell' -Quiet — True. PASSED.
+  4. Select-String -Path src/audio/manager.ts -Pattern 'fadeToSilence' -Quiet — True. PASSED.
+  5. Select-String -Path src/audio/manager.ts -Pattern 'restoreMaster' -Quiet — True. PASSED.
+  6. Select-String -Path src/main.ts -Pattern 'finalBell' -Quiet — True. PASSED.
+
+  Cycle 1-4 regressions:
+  7. Select-String -Path src/main.ts -Pattern 'OQ18' -Quiet — True. PASSED.
+  8. Test-Path src/render/intentBeat.ts — True. PASSED.
+  9. Select-String -Path src/main.ts -Pattern 'intentBeat' -Quiet — True. PASSED.
+  10. Select-String -Path src/main.ts -Pattern 'SAVOUR_MIN_MS' -Quiet — True. PASSED.
+  11. Select-String -Path src/render/moonrise.ts -Pattern 'prefersReducedMotion' -Quiet — True. PASSED.
+
+  Diff inspection — manager.ts:
+  12. finalBell(): guard if (!ctx || !masterGain) return; present. Sine oscillator at 880 Hz (unchanged from N1 goalMet bell — structural callback, no transposition). Envelope: setValueAtTime(0, now) → linearRampToValueAtTime(0.22, now + 0.05) → exponentialRampToValueAtTime(0.001, now + 1.4). Stop at now + 1.5. Connected through masterGain. CONFIRMED — exact spec match.
+  13. fadeToSilence(durationS): guard present. Pattern: cancelScheduledValues(now) → setValueAtTime(masterGain.gain.value, now) → linearRampToValueAtTime(0, now + durationS). CONFIRMED — exact spec match.
+  14. restoreMaster(rampS): guard present. Same cancel/set/ramp pattern, target is MASTER_GAIN (the existing 0.7 constant). CONFIRMED — exact spec match.
+
+  Diff inspection — main.ts:
+  15. pendingFinalBell and pendingFadeToSilence declared at module scope (lines 127-128) alongside other top-level state. CONFIRMED.
+  16. N3 closure scheduling is inside if (goalNowComplete && !wasGoalComplete) block, gated on scene.state.currentNight === 3. currentNight is typed NightNumber (discriminated 1|2|3); === 3 guard is type-safe. Final bell at +1500 ms; fade start at +3500 ms (= 1500 + 2000, matching '2000 ms after final bell' in spec). CONFIRMED.
+  17. Both setTimeout callbacks null out their respective pendingX after firing (idempotent cleanup). CONFIRMED.
+  18. enterNight() clears both pending timeouts and calls audio.restoreMaster(0.4) guarded by if (audio.started), BEFORE the postCompleteMs = 0 / wasGoalComplete = false reset. CONFIRMED.
+  19. showPicker() performs the identical cleanup (clear both timeouts + guarded audio.restoreMaster(0.4)). CONFIRMED — N3 → freeReentry path via finishCurrentNight → showPicker() is safe.
+  20. audio.goalMet() is UNTOUCHED — the diff is purely additive (three new methods + scheduler block + cleanup blocks). CONFIRMED.
+
+- **Ethics-perimeter sweep: clean**
+  - Forbidden analytics imports (sentry, posthog, plausible, mixpanel, gtag, googletagmanager, analytics): zero matches across all .ts files in src/. CLEAN.
+  - Network/fetch calls (fetch(, XMLHttpRequest): zero matches in src/. CLEAN.
+  - localStorage.setItem: one match — src/state/save.ts line 68, key 'neap/save/v2'. No new keys introduced by this commit. CLEAN.
+  - Forbidden UI strings: zero matches. CLEAN.
+  - package.json runtime deps: pixi.js only — no analytics or tracking packages. CLEAN.
+
+- **Regressions: none found**
+  - Cycle-4 OQ18: applyReceiverAttraction call-site guard at main.ts lines 197-199 inside goal.kind === 'send' check; OQ18 marker comment at line 196. INTACT.
+  - Cycle-3 intent-beat: intentBeat.ts exists; createIntentBeat imported and wired at mount, skip-on-press (line 169), update (line 179), moonriseGate composition (line 187), and intentBeat.start(night, level) in enterNight (line 351). INTACT.
+  - Cycle-2 held-success: SAVOUR_MIN_MS = 1500 at line 51; savourCeiling/savourTap split at lines 246-248; pressEdge && !wasGoalComplete press-attack-suppression gate at line 166. INTACT.
+  - Cycle-1 moonrise reduce-motion: prefersReducedMotion in moonrise.ts. INTACT.
+
+- **Notes:**
+  - The 3500 ms scheduling offset for fadeToSilence correctly implements '2000 ms after final bell' because the final bell fires at 1500 ms post goal-met (1500 + 2000 = 3500). Consistent with spec timing. The fadeToSilence(4) call passes a 4-second duration, matching the spec's 'over 4 s' ramp.
+  - Savour-tap short-circuit for N3: when the player taps between 1500 ms and 2500 ms, finishCurrentNight fires, routing to either enterNight (linear) or showPicker (free-reentry). Both cancel both pending timeouts and call audio.restoreMaster(0.4) — no 'stuck silence' can carry forward regardless of path taken.
+  - Free-reentry correctness: pendingFinalBell and pendingFadeToSilence are module-scope, not per-scene. Cleared on every enterNight and showPicker call. On each fresh N3 completion the goalNowComplete && !wasGoalComplete rising edge fires with wasGoalComplete reset to false by the preceding enterNight — closure beat fires every N3 completion (structural, not one-shot).
+  - state.currentNight is the correct field on GameState (confirmed: gameState.ts line 36 currentNight: NightNumber). TypeScript verifies the === 3 check at compile time.
+
+- **Browser-required acceptance: 8 steps pending human pass (Device Validation Needed)**
+
+  The following steps from feel-test-protocol.md § 'The N3 closure-callback test (fade-to-silence + final bell)' require a browser session with sound enabled:
+
+  - [ ] Step 1: Hard-refresh, clear localStorage, play to Night 3 goal-met (release >= 4 lanterns past the east edge).
+  - [ ] Step 2: Standard goal-met bell fires once on the rising edge (880 Hz sine, envelope down over ~1.4 s).
+  - [ ] Step 3: Final bell fires ~1500 ms after the first bell at the same 880 Hz frequency — audible 'two notes, two nights apart, same pitch' structural callback.
+  - [ ] Step 4: ~3500 ms post goal-met the master gain begins a linear ramp toward zero over 4 seconds — ambient quiets gradually, no abrupt cut.
+  - [ ] Step 5: Savour-tap short-circuit — tap during savour window (post 1500 ms, pre 2500 ms); night advances, master gain restores on next night entry; no stuck silence.
+  - [ ] Step 6: N1 goal-met fires only the standard bell (no second bell, no master fade). Same for N2.
+  - [ ] Step 7: Free-reentry — complete N3 multiple times; closure beat fires on each completion.
+  - [ ] Step 8: Reduce-motion ON — audio behaviour is identical; any optional worldLayer.position.y drift during the fade is omitted.
+
+  Critical: steps 3 and 4 together verify the bell-bell-fade timing reads as deliberate. Step 5 verifies the stuck-silence risk is absent in practice. Steps 6 and 7 together verify the N3-only gate works at runtime.
+
+- **QA_RESULT: PASSED_WITH_NOTES** *(all 14 automatable checks pass; 8 manual feel-test steps pending human browser pass — primary empirical gate for this cycle)*
+- **PR_NUMBER: N/A — direct commit 982d008 on main**
+
+### Closure-sprint cycle 5 Review — N3 closure beat
+
+- **Verdict:** APPROVED_WITH_NOTES.
+- **Reviewer:** reviewer agent, against `982d008` on `main`, diff `ef4d1c7..982d008`.
+- **Spec fit:** P1 #7 delivered as specced. `finalBell()` sine 880Hz with byte-identical envelope to `goalMet()`'s primary bell — the structural callback to N1, no transposition. `fadeToSilence(durationS)` uses the canonical cancel/anchor/ramp pattern (`cancelScheduledValues + setValueAtTime(current, now) + linearRampToValueAtTime(0, now + durationS)`) avoiding race conditions with prior schedules. `restoreMaster(rampS)` mirrors the same shape with target `MASTER_GAIN`. All three guarded `if (!ctx || !masterGain) return`. N3 scheduling at +1500ms (bell) and +3500ms (= 1500 + 2000ms gap, matching spec). Cleanup in BOTH `enterNight` and `showPicker`. `audio.restoreMaster` only when `audio.started` per spec watch-out.
+- **Stack discipline:** zero `any`; `ReturnType<typeof setTimeout> | null` is the correct TS-strict pattern for cross-platform timer IDs; no new imports; no new runtime deps. Diff is purely additive across both files.
+- **Wiring correctness — race conditions:** both setTimeout callbacks self-null after firing (`pendingX = null` inside the callback). Both `enterNight` and `showPicker` use `if (pendingX !== null) clearTimeout(...)` then null again — explicit and idempotent. **Risk #3 analysis (savour-tap at exactly 1500ms):** JavaScript single-threaded event loop guarantees only one of the two runs first. If the tap arrives before the timeout fires, `clearTimeout` removes the callback synchronously and the bell never plays. If the timeout fires first, the callback nulls `pendingFinalBell` itself; subsequent `enterNight` finds null and skips. Both orderings clean. `restoreMaster(0.4)` ramps gain back regardless of which path. PASS.
+- **State leak:** module-scope `pendingFinalBell` / `pendingFadeToSilence` are closure variables fresh per page load. Both cleared on every `enterNight` AND `showPicker` (the only paths out of N3 completion). Free-reentry: each fresh N3 completion fires the closure beat structurally (no one-shot guard). No leak.
+- **No-comment policy compliance:** the `finalBell` body has exactly one single-line comment naming the 880Hz-equals-N1's-bell invariant — the documented exception in conventions §No-comment policy ("Comments are for the why when it's non-obvious — a hidden constraint, a subtle invariant"). One short line, not a paragraph block. PASS — clean on first review (cycle-4's compression iteration not repeated here).
+- **Ethics ban list:** clean. Audio-only diff; no UI text, no notifications, no analytics, no fetch/network, no forbidden UI strings.
+- **A11y:** audio is not motion. Reduce-motion path unchanged. Optional `worldLayer.position.y` drift correctly absent (out of cycle scope per dispatch).
+- **No regressions:** cycle 1-4 fixes all confirmed intact (moonrise reduce-motion; SAVOUR_MIN_MS + savour split + press-attack-suppression gate; intent beat module + skip-on-press at line 170; OQ18 single-line comment + N3-only `applyReceiverAttraction` gate).
+- **Existing audio methods untouched:** `goalMet`, `setPhase`, `pressAttack`, `releaseWhoosh`, `softDriftSigh`, `duckBed`, `unduckBed`, `makeNoiseSource` all byte-identical to pre-cycle-5.
+- **Out-of-scope items correctly absent:** P1 #6 headland fire (deferred); P2 #16 picker-entry duck (deferred); optional `worldLayer.position.y` drift (cosmetic, deferred); `audio.fadeBedIn` (not part of cycle 5 scope, was implicitly out of cycle 1's reduce-motion shape).
+- **Notes (no code change requested):**
+  1. **Feel-tuning literals.** `1500`, `3500`, and `4` are inline literals in the ticker block; `0.4` is the inline ramp duration in `enterNight` and `showPicker`. Conventions say "all tunables" live in `config.ts`. These four values are feel-tuning critical — the day-6 acceptance criterion "does the fade arrive at the right moment?" depends on them. Consider extracting to named `config.ts` constants on the next touch of this file (not blocking; the spec literally specifies these values).
+  2. **Browser feel-test is the empirical gate.** Steps 3 and 4 of the QA's 8-step manual test together verify the bell-bell-fade timing reads as deliberate. Step 5 verifies the stuck-silence risk is absent. Steps 6 and 7 together verify the N3-only gate works at runtime. The narrative outcome — does the bay quieting feel like "and ever since"? — is a felt-quality decision only the human can make.
+- **Remaining gate:** browser feel-test (QA's pending human pass on the eight N3 closure-callback steps in `feel-test-protocol.md`) — not a reviewer blocker; correctly flagged by QA as the primary empirical gate for this cycle.
+
+- **REVIEW_RESULT: APPROVED_WITH_NOTES**
+- **PR_NUMBER: N/A — direct commit 982d008 on main**

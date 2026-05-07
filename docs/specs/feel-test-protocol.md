@@ -170,6 +170,39 @@ Select-String -Path src/main.ts -Pattern 'OQ18' -Quiet
 
 **Pass:** match returns True. **Fail:** match returns False — the call-site is unguarded and the wedge clause is silently contradicted on N1/N2 (retrospective OQ18 adjudication; trailer P1 #9 cannot record honestly).
 
+## The N3 closure-callback test (fade-to-silence + final bell)
+
+**Run after:** any cycle that touches `audio.finalBell` / `audio.fadeToSilence` / `audio.restoreMaster` or the N3 goal-met scheduler in `game/src/main.ts`.
+
+**Why:** closure-sprint P1 #7 — the kishōtenketsu "and ever since" beat. N3 must close differently from N1 and N2: the goal-met bell fires, then 1500ms later the same bell rings as a structural callback to N1 (same 880Hz frequency, no transposition), then 2000ms after that the master gain ramps to silence over 4 seconds. The bay closes its own loop. The savour-tap "advance now" path must short-circuit the schedule cleanly so the master gain restores on the next night entry.
+
+### Manual feel-test (after a code change to the closure callback)
+
+1. Hard-refresh the page. Clear localStorage. Play through to Night 3 (or use `?night=3`). Reach goal-met (release ≥4 lanterns past the east edge).
+2. **Test the existing goal-met bell.** Confirm the standard goal-met bell fires once on the rising edge (sine 880Hz, envelope down over ~1.4s).
+3. **Test the final bell callback.** Approximately 1500ms after the first bell, a second bell fires at the same frequency (880Hz). The two notes form an audible "two notes, two nights apart, same pitch" callback: the bay closing its own loop.
+4. **Test fade-to-silence.** Approximately 3500ms after the goal-met (2000ms after the final bell), the master gain begins a linear ramp toward zero over 4 seconds. The ambient bed quiets gradually until silence. No abrupt cut.
+5. **Test savour-tap short-circuit.** Replay N3, reach goal-met, tap during the savour minimum (after 1500ms but before the auto-ceiling at 2500ms). Confirm: night advances cleanly; on entering the picker (or N1 if linear), master gain is restored to full level. No "stuck silence" carries forward.
+6. **Test N1 and N2 do NOT fire the closure beat.** Replay N1 to goal-met; confirm only the standard goal-met bell fires (no second bell, no master fade). Same for N2.
+7. **Test free-reentry.** With `meta.freeReentry === true`, enter N3 via picker, complete it. Confirm the closure beat fires every time N3 is completed (it is structural, not a one-shot).
+8. **Test reduce-motion.** Windows reduce-motion ON. The audio behaviour is identical (audio is not motion). Any optional `worldLayer.position.y` drift during the fade is omitted under reduce-motion.
+
+**Pass:** all eight behaviours land cleanly.
+
+### Automatable regression check (code-level)
+
+The QA agent runs this static check from `C:\Dev\gameX\game\`:
+
+```powershell
+# P1 #7: audio manager exposes finalBell + fadeToSilence + restoreMaster; main.ts schedules them on N3.
+Select-String -Path src/audio/manager.ts -Pattern 'finalBell' -Quiet
+Select-String -Path src/audio/manager.ts -Pattern 'fadeToSilence' -Quiet
+Select-String -Path src/audio/manager.ts -Pattern 'restoreMaster' -Quiet
+Select-String -Path src/main.ts -Pattern 'finalBell' -Quiet
+```
+
+**Pass:** all four return True. **Fail:** any returns False — the closure beat is unwired and N3 ends with the same beat as N1/N2; the kishōtenketsu third-act resolution is missing (closure-sprint P1 #7 regression).
+
 ## The clip-render test
 
 **Run after:** day 7 (trailer cut) and day 9 (verification).
