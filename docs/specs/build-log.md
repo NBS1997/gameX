@@ -945,3 +945,77 @@ Picking up the deferred-polish backlog from the discoverability pass:
   - (b) Sent lanterns on N3 must NOT receive a tether strand — the `!receiver.sent` guard is in place in `cursorTether.ts`. Verify in browser feel-test that tether disappears per-lantern as each is sent.
 
 - **Commit:** `feat(cursor-tether): replace cursorTrail with cursorTether + extract N3 timing literals to config.ts — captain cycle 6, P1 #8 + cycle-5 cosmetic fix`
+
+### Closure-sprint cycle 6 QA — cursor-tether + N3 literals
+
+- **Automatable acceptance: 22/22 criteria passed via code/static checks**
+
+  Toolchain:
+  1. `npx tsc --noEmit` — exit 0. PASSED.
+  2. `npm run lint` — exit 0. PASSED.
+
+  Cycle-6 cursor-tether static checks (feel-test-protocol.md § 'The cursor-tether test'):
+  3. `Test-Path src/render/cursorTether.ts` — True. PASSED.
+  4. `Select-String -Path src/main.ts -Pattern 'cursorTether' -Quiet` — True. PASSED.
+  5. `Test-Path src/render/cursorTrail.ts` — False (file absent). PASSED (negative check).
+  6. `Select-String -Path src/main.ts -Pattern 'cursorTrail' -Quiet` — False. PASSED (negative check).
+
+  Cycle-6 N3-literals static checks:
+  7. `Select-String -Path src/config.ts -Pattern 'N3_FINAL_BELL' -Quiet` — True. PASSED.
+  8. `Select-String -Path src/config.ts -Pattern 'N3_FADE_TO_SILENCE' -Quiet` — True. PASSED.
+  9. `Select-String -Path src/config.ts -Pattern 'MASTER_RESTORE_RAMP' -Quiet` — True. PASSED.
+
+  Global cursorTrail sweep:
+  10. `grep -r 'cursorTrail' src/` — zero hits across entire game/src/ tree. PASSED.
+
+  Cycles 1-5 regressions:
+  11. `Select-String -Path src/main.ts -Pattern 'OQ18' -Quiet` — True. PASSED.
+  12. `Test-Path src/render/intentBeat.ts` — True. PASSED.
+  13. `Select-String -Path src/main.ts -Pattern 'intentBeat' -Quiet` — True. PASSED.
+  14. `Select-String -Path src/main.ts -Pattern 'SAVOUR_MIN_MS' -Quiet` — True. PASSED.
+  15. `Select-String -Path src/render/moonrise.ts -Pattern 'prefersReducedMotion' -Quiet` — True. PASSED.
+  16. `Select-String -Path src/audio/manager.ts -Pattern 'finalBell' -Quiet` — True. PASSED.
+  17. `Select-String -Path src/audio/manager.ts -Pattern 'fadeToSilence' -Quiet` — True. PASSED.
+  18. `Select-String -Path src/audio/manager.ts -Pattern 'restoreMaster' -Quiet` — True. PASSED.
+  19. `Select-String -Path src/main.ts -Pattern 'finalBell' -Quiet` — True. PASSED.
+
+  cursorTether.ts spec-contract inspection:
+  20. Interface shape: `{ container: Container, update({ cursorX, cursorY, receivers, range, holdT }), setEnabled(enabled) }` — confirmed at lines 8-18 and 61. CONFIRMED.
+  21. Alpha formula: `0.3 * opts.holdT * (1 - dist / opts.range)` at line 48; literal 0.3 present; colour `TETHER_COLOUR = 0xa8b5cc` (line 5); stroke `TETHER_WIDTH = 2` (line 6); `receiver.sent` filter at line 43; per-receiver loop iterates all receivers, skips sent and out-of-range; `prefersReducedMotion()` called per-frame at line 41. CONFIRMED.
+  22. main.ts wiring: import from `./render/cursorTether.ts` at line 21; four config constants imported lines 9-12; `holdT` at line 178 (before night branch at line 180); `cursorTether.update(...)` at lines 225-231 inside night branch after `scene.entities.update(dt)`, before goal-complete check; range = `scene.state.level.night.pullRadius * RECEIVER_PULL_RADIUS_MULTIPLIER` (line 229, matches `applyReceiverAttraction` at line 294); `cursorTether.setEnabled(false)` in else branch at line 270; N3 scheduler uses all four named constants; `audio.restoreMaster(MASTER_RESTORE_RAMP_S)` at both `enterNight` (line 322) and `showPicker` (line 377). CONFIRMED.
+  config.ts: `N3_FINAL_BELL_DELAY_MS = 1500`, `N3_FADE_TO_SILENCE_DELAY_MS = 3500`, `N3_FADE_TO_SILENCE_DURATION_S = 4`, `MASTER_RESTORE_RAMP_S = 0.4` — all four exported at lines 88-91. CONFIRMED.
+
+- **Ethics-perimeter sweep: clean**
+  - Forbidden analytics imports (sentry, posthog, plausible, mixpanel, gtag, googletagmanager, analytics): zero matches in src/. CLEAN.
+  - Network/fetch calls (fetch(, XMLHttpRequest): zero matches in src/. CLEAN.
+  - localStorage.setItem: one match — src/state/save.ts, key neap/save/v2. No new keys. CLEAN.
+  - Forbidden UI strings (share, wishlist, follow, streak, leaderboard, notification): zero matches. CLEAN.
+  - Service workers: zero registrations. CLEAN.
+  - package.json runtime deps: pixi.js only. CLEAN.
+
+- **Regressions: none found**
+  - All cycles 1-5 regression anchors intact (checks 11-19 above).
+  - cursorTrail: zero hits anywhere in game/src/ — placeholder fully gone.
+
+- **Code concerns (cannot be caught by static checks):**
+  - `prefersReducedMotion()` is called per-frame inside `cursorTether.update()` but its return value is not branched on. The inline comment explains the intention: the tether is redrawn each frame so both reduce-motion and normal paths produce identical geometry (alpha derived from holdT, no fade-in tween exists). The call is correct as a live OS-toggle sentinel. A future reader may question the unused return value; a reviewer note is warranted but this is not a defect.
+  - Per-receiver strand loop draws 8 separate stroke() calls per frame on N2 (all in-range). Pixi 8 batching should handle this; verify perf in browser feel-test before shipping (dev watch-out (a)).
+
+- **Browser-required acceptance: 8 steps pending human pass (Device Validation Needed)**
+
+  Steps from feel-test-protocol.md § 'The cursor-tether test' requiring a live browser session:
+  - [ ] Step 2: Press-and-hold near a receiver within pull range — foam-stop shimmer line draws cursor to receiver; alpha grows over hold-onset ramp.
+  - [ ] Step 3: Move cursor away while holding (within range) — alpha decreases with distance (formula empirically verified).
+  - [ ] Step 4: Move outside pull range — tether disappears; re-enter range — reappears.
+  - [ ] Step 5: Multi-receiver (N2 8 lanterns / N3 6 lanterns) — tether draws to all in-range receivers; no flicker on slow cursor movement.
+  - [ ] Step 6: Release mouse — tether disappears immediately (next frame); does not compete with release-snapback.
+  - [ ] Step 7: Reduce-motion ON — static line at same alpha (no fade-in tween) or omitted; confirm which path the implementation takes.
+  - [ ] Step 8: No decorative dot-trail follows cursor anywhere in the slice.
+  - [ ] Step 1 (felt-quality): does the tether read as "moon pulls water → water pulls things" or merely decorative? Disappears cleanly out-of-range? Multi-receiver coherent or visually noisy?
+
+- **Notes:**
+  - The reduce-motion swap in cursorTether.ts is technically correct (per-frame redraw makes both paths geometrically identical). If the design intent was a visually distinct reduce-motion state (dimmer alpha or no tether at all), a one-line branch on the prefersReducedMotion() return value would achieve it. Not a defect; flag for reviewer.
+  - Cycle-5 reviewer non-blocking note (extract timing literals to config.ts) is fully addressed: all four constants in config.ts, all inline literals replaced in main.ts.
+
+- **QA_RESULT: PASSED_WITH_NOTES** *(all 22 automatable checks pass; 8 manual feel-test steps pending human browser pass — primary empirical gates for P1 #8)*
+- **PR_NUMBER: N/A — direct commit 85bfd18 on main**
