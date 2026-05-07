@@ -1254,3 +1254,39 @@ Belt-and-braces. The back-and-forth case (cross, drift back, cross again) is ful
   - (c) Reduce-motion path needs no special handling — silhouettes are static `Graphics` objects with no animation; they are inert under any OS setting by construction.
   - (d) The ethics perimeter constraint (no counters/badges/tooltips on the picker) is enforced by absence — no `text`, `pointerover`/`pointerout` listeners, or numeric tallies are added to `ghostContainer` or its children.
 - **Commit:** `feat(picker-place): P1 #2 visual half — ghosts as silhouettes at picker; trim config.ts comment — captain cycle 9`
+
+### Closure-sprint cycle 9 QA — picker-as-place + config.ts comment trim
+
+- **Automatable acceptance: 27/27 PASSED.** `npx tsc --noEmit` exit 0; `npm run lint` exit 0; cycle-9 static check `Select-String src/scenes/nightPicker.ts -Pattern 'PICKER_GHOST' -Quiet` returns True; all 16 cycle-1-to-7 regression checks intact.
+- **`nightPicker.ts` spec-contract:** six PICKER_GHOST_* constants; ghostContainer added BEFORE the glyph (z-order correct); `setMeta` calls `collectGhostsByNight(meta)` once; rim-only Graphics; world-to-picker transform `(ghost.x - LOGICAL_WIDTH / 2) * PICKER_GHOST_SCALE`; foam-stop `0xa8b5cc`/alpha 0.35/width 1; `r.sent` filter on session path.
+- **Perimeter (habit-formation cycle-9): clean.** No counters/badges/tallies/copy/hover-on-ghost. The cycle-1 hover-scale on slot.container untouched.
+- **`config.ts` trim:** 4-line block → single line per §131. Constants unchanged.
+- **Ethics-perimeter sweep: clean.**
+- **Regressions: none.**
+- **Code concern (BUG, medium severity, NOT a regression):** `collectGhostsByNight` persisted-path guard `if (out.has(g.night)) continue` fires after the first ghost per night is pushed, dropping the rest. Live-session unaffected; cross-session reload (the day-7 acceptance scenario) under-renders. **Resolution:** orchestrator fixed in-session at `2b98cf7` — replaced with `meta.sessionGhosts.has(g.night)` guard + get-or-create accumulation.
+- **Browser-required: 9 manual feel-test steps pending human pass.**
+
+- **QA_RESULT: PASSED_WITH_NOTES** *(automatable gate clear; persisted-path bug caught and fixed in-session)*
+- **PR_NUMBER: N/A — direct commits `0fe7cc3` + `2b98cf7` on main**
+
+### Closure-sprint cycle 9 Review — picker-as-place + config.ts comment trim
+
+- **Verdict (initial):** CHANGES_REQUESTED — persisted-path bug (caught by QA + reviewer independently).
+- **Verdict (after fix):** APPROVED_WITH_NOTES.
+- **Reviewer:** reviewer agent, against `0fe7cc3`, three-file diff `712a157..0fe7cc3`.
+- **Resolution:** orchestrator fix at `2b98cf7`. Session-wins-per-night semantic preserved.
+- **Spec fit (P1 #2):** PICKER_GHOST_* constants correct; z-order correct; transform matches; rim-only shapes; per-slot night filter correct.
+- **Spec fit (config.ts):** 4-line → 1-line per §131; constants unchanged.
+- **collectGhostsByNight (post-fix):** explicit return type; session-first iteration; persisted-fill via `sessionGhosts.has` guard; get-or-create list pattern.
+- **Wiring:** `setMeta` calls helper once before slot loop; `removeChildren()` per slot; no listeners on ghosts.
+- **Perimeter:** clean — no `complete/ready/done/streak/tally/count` strings.
+- **Stack discipline:** zero `any`; no new deps.
+- **No-comment policy:** no new multi-line blocks.
+- **Performance:** O(slots × ghosts_per_night) bounded.
+- **Ethics + a11y:** clean. Silhouettes static; reduce-motion-safe by construction.
+- **No regressions cycles 1-7.**
+- **Edge cases (post-fix):** first launch / mid-arc / all-completed / cross-session reload — all PASS.
+- **Notes (no further code change requested):** mid-cycle blocker fix pattern — cycles 4, 6, 7, 9 (4 of 9). Bug consistently in orchestrator dispatch text.
+
+- **REVIEW_RESULT: APPROVED_WITH_NOTES**
+- **PR_NUMBER: N/A — direct commits `0fe7cc3` + `2b98cf7` on main**
