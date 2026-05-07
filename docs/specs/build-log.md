@@ -59,6 +59,13 @@ Append-only working log for Phase 3. Each agent appends to its own subsection.
 
 *(populated by qa-agent when found)*
 
+### heron-recoil-direction — found cycle 11
+
+- **Symptom:** `render/heron.ts` `triggerRecoil()` computes the recoil displacement vector as `container.position - basePosition` (the heron's drift from its anchor, which is near-zero when the heron is at rest). The `|| 1` fallback fires almost every time, producing a fixed-axis shift that is not directed away from the cursor. The heron body does not visibly move in the expected direction on a hard-pull.
+- **Reproduce:** Enter N4. Press-and-hold and rapidly sweep the cursor across the heron at speed > 220 px/s within 90 px. Observe: heron body-shift is either imperceptibly small or fixed-axis rather than away from cursor.
+- **Expected:** Per cycle-11 UX refinement #2: the 18 px shift must be along the unit vector from cursor to heron (away from cursor), clamped so the heron does not cross below the foam line. Fix: pass `cursorPos: Vec2` to `triggerRecoil`; compute `cursorAwayDx = container.position.x - cursorPos.x` and normalise that vector; update the `Heron` interface and the `onShy` call-site in `main.ts`.
+- **Severity:** medium — the withhold verb remains functional (dwellT bleeds correctly, goal-met fires, no failure surface), but the recoil visual cue is broken, weakening the tactile feedback that communicates “cursor was too fast.”
+
 ### moonrise-reduce-motion â€” found Phase-4 Cycle 1
 - **Symptom:** `render/moonrise.ts` performs a camera-lift animation and cursor-alpha ramp with no check of `prefers-reduced-motion`. The `a11y/reduceMotion.ts` utility exists and is used by `cursorTrail` and `softDrift`, but `moonrise` never imports it.
 - **Reproduce:** Enable Windows Accessibility â†’ Visual effects â†’ Animation effects: Off. Hard-refresh `http://localhost:5173/`. Observe: moonrise still plays the full camera-lift animation instead of an instant cut + 400 ms ambient fade.
@@ -1451,4 +1458,115 @@ Belt-and-braces. The back-and-forth case (cross, drift back, cross again) is ful
 - **Out of scope:** intent-beat N4 path (sub-cycle C); motion-and-colour-bible N4 additions (sub-cycle C); Steam-page propagation (sub-cycle C).
 - **Watch-outs:** prevCursorPos captured at end of ticker after wasHolding update — velocity reads last-frame to this-frame, correct per plan wiring note. heronGoalMetThisNight resets in enterNight unconditionally. N4 closure chain reuses N3 timing constants (N3_FINAL_BELL_DELAY_MS etc.) — sub-cycle C may want N4-specific tuning. recoilCooldownUntil resets to 0 in heron.reset() called from enterNight — no cross-night leak confirmed.
 - **Commit:** e9e4dfe
+
+
+## Captain cycle 11 Review — N4 sub-cycle B
+
+### Cycle 11 sub-cycle B Review — 2026-05-07
+- **Verdict:** CHANGES_REQUESTED
+- **Commit reviewed:** e9e4dfe
+- **Acceptance fit:** Sub-cycle B scope is fully honoured — verb, heron render module, settle chime, cursor-tether suppression, pull-radius brightness modulation, picker carry-overs, `WATER_PALETTES` typing. No sub-cycle C scope creep (`intentBeat.ts`, `motion-and-colour-bible.md`, Steam-page draft all absent from diff). P3 cut (tether fade-out) is documented in build-log — acceptable. Cycle-11 retro refinements #1–#13 all traced to shipped code, with one UX refinement (#2, recoil direction) containing a functional bug (see below).
+- **Stack discipline:** No `any`; no new runtime deps; `reduceMotion` import path (`../a11y/reduceMotion.ts`) matches all other render modules. `setRingAlphaBoost` follows the cycles-3/6/7 minimal-interface-extension pattern. Two-line comment at `main.ts:423–424` technically violates §131 (one short line maximum); the content is the *why* for a P3 cut, so it is the least-bad place for it, but it should be collapsed to one line.
+- **Ethics ban list:** Clean. No `creatureTrust`, `bond`, `affinity`, `friendship`, `trust` in new code. No heron fields in save schema (SaveDataV3 byte-identical to sub-cycle A, confirmed by zero diff on `save.ts`). No `Date()`, no real-world tie-in, no analytics, no fetch, no new localStorage keys.
+- **Smoothstep formula:** `dwellT * dwellT * (3 - 2 * dwellT)` — correct. Applied with N4 + `kind === 'still'` guard plus an `else { setRingAlphaBoost(0) }` reset for non-N4 nights — correct.
+- **Audio:** 587 Hz literal present; `linearRampToValueAtTime` attack + `exponentialRampToValueAtTime` decay; `!ctx || !masterGain` guard; connects via `masterGain` — all correct.
+- **`dwellT` in `state.goalProgress`:** Confirmed in `gameState.ts:27`. Verb mutates it in-place; goal-met fires `onGoalMet` once guarded by `complete` flag — correct.
+- **`gone` terminal:** Single post-lift terminal, no variants. `reset()` returns to `idle` — correct.
+- **`prevCursorPos` capture:** Captured at `main.ts:351`, after `heron.update` at line 287 — correct order per plan watch-out.
+- **`heron.reset()` before `setPosition` in `enterNight`:** Confirmed at lines 415→419 — correct.
+
+**Blocker:**
+
+- [ ] **Recoil direction wrong — `render/heron.ts:83–84`**
+
+  `triggerRecoil()` computes the displacement vector as `container.position - basePosition` (the heron's current offset from its anchor), not as `heron.position - cursorPosition`. When the heron is idle or approaching it sits at `basePosition`, making this vector near-zero and triggering the `|| 1` fallback — the heron does not visually move on recoil. The spec (cycle-11 UX refinement #2) requires "unit vector from cursor to heron (away from cursor)."
+
+  Fix: add `cursorPos: Vec2` parameter to `triggerRecoil`, update the `Heron` interface, and compute:
+  ```ts
+  const cursorAwayDx = container.position.x - cursorPos.x;
+  const cursorAwayDy = container.position.y - cursorPos.y;
+  ```
+  Update the call site in `main.ts` `onShy` callback: `onShy: () => heron.triggerRecoil({ x: pointer.x, y: pointer.y })`.
+
+**Non-blocking notes for sub-cycle C:**
+
+- `approaching` phase is dead code. `update()` has no `idle → approaching` transition, and there is no `triggerApproach` method on the `Heron` interface. The 600 ms head-rotate-toward-cursor animation from the design memo (§"Visual identity", approach behaviour) is unimplemented. The withhold verb is functional without it, but the phase slot in the state machine will never be entered until a transition is wired. Sub-cycle C should either add a `triggerApproach(cursorPos: Vec2)` method or drive the transition from within `update()` by comparing `d < WITHHOLD_RING_R`.
+- `update()` signature accepts `cursorPos: Vec2` but never reads it — harmless placeholder for the approaching-transition work above.
+- Two-line comment at `main.ts:423–424`: collapse to one line per §131. Acceptable content (P3-cut why), just needs condensing.
+- N4 closure chain reuses `N3_FINAL_BELL_DELAY_MS` / `N3_FADE_TO_SILENCE_DELAY_MS` constants — already noted by dev-agent. If N4 needs different timing, add `N4_*` constants in sub-cycle C; for now the reuse is not a correctness issue.
+
+**REVIEW_RESULT: CHANGES_REQUESTED**
+
+## Captain cycle 11 QA — N4 sub-cycle B
+
+### Captain cycle 11 QA — N4 sub-cycle B — 2026-05-07
+
+- **Automatable acceptance: 10/10 Task-7 static checks passed; 22/22 cycles 1-10 regression anchors passed; 17/17 sub-cycle A regression anchors passed.**
+- **Browser-required acceptance: 10 criteria pending human pass — see "Browser checks required" below.**
+- **Ethics-perimeter sweep: clean.**
+- **Notes:** Reviewer's `CHANGES_REQUESTED` blocker (recoil direction) is confirmed by code inspection — see regression entry below. All other automatable checks pass. P3 cut (`cursorTether.fadeOut(250)` deferred to sub-cycle C) is documented in the dev-agent build-log entry. Save schema invariant holds.
+
+**Toolchain:**
+1. `npx tsc --noEmit` — exit 0. PASSED.
+2. `npm run lint` — exit 0. PASSED.
+
+**Task-7 automatable checks (10/10):**
+3. `Test-Path src/verbs/withhold.ts` — True. PASSED.
+4. `Test-Path src/render/heron.ts` — True. PASSED.
+5. Heron state machine phases — `'idle'`, `'approaching'`, `'recoiling'`, `'preLift'`, `'lifting'`, `'gone'` — all True. PASSED.
+6. `heronSettleChime` in `manager.ts` — True. `587` in `manager.ts` — True. PASSED.
+7. `updateWithhold`, `heron.update`, `heron.reset`, `heron.triggerRecoil`, `heronSettleChime` in `main.ts` — all True. PASSED.
+8. `WITHHOLD_RING_R`, `WITHHOLD_DWELL_RISE`, `WITHHOLD_PRE_LIFT_DWELL` in `config.ts` — all True. PASSED.
+9. Banned identifiers (`creatureTrust|bond|affinity|friendship`) in `src/` — zero matches. PASSED.
+10. `git diff ce651c6..HEAD -- game/src/state/save.ts` — `SaveDataV3` interface body unchanged from sub-cycle A; zero diff on `save.ts` for the sub-cycle B commit (`e9e4dfe`). PASSED.
+11. `night === 4` explicit clause in `nightPicker.ts` — True. PASSED.
+
+**Dev-agent deviation verification:**
+
+- **`render/heron.ts` import path `../a11y/reduceMotion.ts`:** Correct. All other render modules under `game/src/render/` reference `../a11y/reduceMotion.ts`. Plan had `./reduceMotion.ts` which would be wrong; dev-agent corrected to match the actual directory layout. CONFIRMED ACCEPTABLE.
+- **`cursorTether.setEnabled(false)` instead of `fadeOut(250)`:** Documented in the build-log entry as a P3 cut — `cursorTether` has no `fadeOut` method; smooth-fade deferred to sub-cycle C. The cut is in scope for the plan's fallback instruction. CONFIRMED ACCEPTABLE.
+- **`cursor.setRingAlphaBoost` added to `MoonCursor` interface + `cursor.ts`:** Implemented per plan Task 5 step 7 fallback. Interface extended with `setRingAlphaBoost(boost: number): void`; cursor.ts stores `ringBoost` closure var added into the `ring.alpha` formula. Correct pattern. CONFIRMED ACCEPTABLE.
+
+**Cycles 1-10 regression suite (22/22):**
+- Cycle 1: `prefersReducedMotion` in `moonrise.ts` — True.
+- Cycle 2: `SAVOUR_MIN_MS` in `main.ts` — True.
+- Cycle 3: `intentBeat.ts` exists — True. `intentBeat` in `main.ts` — True.
+- Cycle 4: `OQ18` in `main.ts` — True.
+- Cycle 5: `finalBell`, `fadeToSilence`, `restoreMaster` in `manager.ts` — all True. `finalBell` in `main.ts` — True.
+- Cycle 6: `cursorTether.ts` exists — True. `cursorTrail.ts` absent — True (False on Test-Path). `cursorTether` in `main.ts` — True. `cursorTrail` in `main.ts` — False (correct negative). `N3_FINAL_BELL_DELAY_MS`, `N3_FADE_TO_SILENCE_DELAY_MS`, `MASTER_RESTORE_RAMP_S` in `config.ts` — all True.
+- Cycle 7: `headlandFire.ts` exists — True. `lanternIgnitesFire` in `manager.ts` — True. `headlandFire` in `main.ts` — True. `"fire"` in `night-3.delta.json` — True. `AmbientDef` in `types.ts` — True.
+- Cycle 9: `PICKER_GHOST` in `nightPicker.ts` — True.
+
+**Sub-cycle A regression anchors (17/17):** all True per earlier checks.
+
+**Spec-contract checks:**
+
+- `verbs/withhold.ts` exists; all `WITHHOLD_*` constants imported from `config.ts`; no inline literals. CONFIRMED.
+- `render/heron.ts` 6-phase state machine `idle|approaching|recoiling|preLift|lifting|gone` present. CONFIRMED.
+- `heron.reset()` called on `enterNight(4)` at `main.ts:415`; recoil cooldown resets to 0 in `reset()` at `heron.ts:71`. CONFIRMED.
+- `audio.heronSettleChime()` exists; 587 Hz sine; 0.05s attack / 1.2s decay / 0.18 peak. CONFIRMED.
+- `main.ts` wiring: `updateWithhold` called from `case 'still':`; cursor velocity computed from `prevCursorPos`; `heron.update` called per-frame on N4 at `main.ts:287`; `prevCursorPos` captured AFTER `heron.update` at `main.ts:351` — correct order per plan watch-out; smoothstep `dwellT * dwellT * (3 - 2 * dwellT)` on brightness modulation. CONFIRMED.
+- `nightPicker.ts` `isNightSelectable` has explicit `if (night === 4) return meta.completedNights.has(3)` clause. CONFIRMED.
+- `WATER_PALETTES` typed as `Record<LunarPhase, readonly RGB[]>` with `LunarPhase` imported from `./level/types.ts`. CONFIRMED.
+
+**Ethics-perimeter sweep:**
+- Forbidden analytics imports (`sentry`, `posthog`, `plausible`, `mixpanel`, `analytics`, `gtag`, `googletagmanager`): zero matches in `src/`. CLEAN.
+- Network APIs (`fetch(`, `XMLHttpRequest`, `WebSocket`, `EventSource`): zero matches in `src/`. CLEAN.
+- `localStorage.setItem`: one match — `src/state/save.ts`, key `SAVE_KEY = 'neap/save/v3'`. Only permitted key. CLEAN.
+- Forbidden UI strings (`wishlist`, `share`, `follow`, `streak`, `leaderboard`, `notification`): zero matches. CLEAN.
+- Runtime `dependencies`: `{"pixi.js": "^8.18.1"}` only. CLEAN.
+
+**Browser checks required:**
+- [ ] Manual step 1: Fresh tab, clear localStorage, complete N1 → N2 → N3 → press N4. Title card "Last quarter. The bay holds what was given." holds 3000 ms, fades 400 ms.
+- [ ] Manual step 2: Heron visible at eastern foam line (~1700, 880), standing with faint cool halo, idle micro-tilt ±2° over 4.3s.
+- [ ] Manual step 3: Pull-radius ring brightens smoothly (smoothstep, not linear) as cursor enters within 220 px of the heron.
+- [ ] Manual step 4: Press-and-hold near heron, keep still ~2.5s — pre-lift wing-stretch then heron lifts east-and-up over ~2.4s; 587 Hz settle chime plays; final-bell + fade-to-silence + master-restore fires.
+- [ ] Manual step 5: Hard-pull recoil — heron single body-shift away (along cursor→heron unit vector), not permanent flight. No failure surface, no modal.
+- [ ] Manual step 6: Withhold without press — cursor near heron, no press, dwellT rises to goal after ~2.5s.
+- [ ] Manual step 7: Reduce-motion ON — idle static, approach alpha-pulse, recoil omitted, pre-lift instant-pose, lift 600ms alpha-fade.
+- [ ] Manual step 8: Cursor-tether suppressed on N4 entry; restored on return to N1.
+- [ ] Manual step 9: Save schema — `localStorage['neap/save/v3']` has completedNights including 4 after goal-met; no heron fields.
+- [ ] Manual step 10: No UI text mentions heron/creature/trust/bond/friend throughout session.
+
+**QA_RESULT: REGRESSIONS_FOUND** *(recoil-direction bug confirmed; all other automatable checks pass)*
 
