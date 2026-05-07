@@ -285,6 +285,40 @@ Select-String -Path src/level/types.ts -Pattern 'AmbientDef' -Quiet
 
 **Pass:** all five return True. **Fail:** the visual partner to the N3 closure beat is missing — the bay does not respond to "let go," the trailer's third-up frame has no subject (closure-sprint P1 #6 regression).
 
+## The picker-as-place test
+
+**Run after:** any cycle that touches `game/src/scenes/nightPicker.ts` ghost rendering or its `meta.ts` data feed (closure-sprint Day 7, P1 #2 visual half).
+
+**Why:** the cycle-1 day-1 save schema persists `meta.persistedGhosts` across sessions, but until P1 #2 ships there is no rendering of those ghosts at the picker scene. The picker is the only place the player sees the whole arc; without ghosts it reads as an abstract three-button menu rather than a bay that holds memory of nights they've played. The Steam draft (cycle 8) explicitly claims "your bay carries forward what you've done, softly" — P1 #2 makes that claim visually true. **Perimeter constraint (habit-formation cycle 9):** silhouettes ONLY — no completion counters, no badges, no numeric tallies, no "ready" copy, no hover tooltips that name what the silhouette was.
+
+### Manual feel-test (after a code change to picker ghost rendering)
+
+1. Hard-refresh the page. Clear localStorage. Land on Night 1 (linear flow, no picker yet).
+2. Play and complete N1. Watch auto-advance to N2.
+3. Play and complete N2. Watch auto-advance to N3.
+4. Play and complete N3. `meta.freeReentry` flips to true after the closure beat. The picker appears.
+5. **Test ghost rendering.** Each of the three slots shows faint foam-stop (`#a8b5cc`) rim silhouettes positioned within the slot frame, depicting:
+   - N1 slot: small boat ellipse (rim only) at the position where the boat settled (near the harbour ring).
+   - N2 slot: small lantern circles (rim only) at lantern cluster centroid positions.
+   - N3 slot: small lantern circles for the lanterns that did NOT cross east (sent lanterns are absent — the bay carries forward what was held, not what was sent).
+6. **Test perimeter compliance.** Confirm visually: NO numeric counters, NO badges, NO "completed" copy, NO hover tooltips that name what the silhouette was. The picker is a place, not a checklist.
+7. **Test cross-session persistence.** Hard-refresh the browser. Confirm: ghosts persist (the cycle-1 v2 schema works end-to-end).
+8. **Test mid-arc state.** Clear localStorage, complete only N1, refresh. Confirm: only N1 slot shows ghosts; N2 and N3 slots are clean.
+9. **Test reduce-motion.** Silhouettes are static (no pulse, no animation); rendering identical with reduce-motion on or off.
+
+**Pass:** all five behaviours land cleanly. **Fail:** the picker is empty after completed nights (the day-1 schema is shipped but unused at the picker — closure-sprint P1 #2 visual-half regression).
+
+### Automatable regression check (code-level)
+
+The QA agent runs this static check from `C:\Dev\gameX\game\`:
+
+```powershell
+# P1 #2: picker scene must reference picker-ghost rendering.
+Select-String -Path src/scenes/nightPicker.ts -Pattern 'PICKER_GHOST' -Quiet
+```
+
+**Pass:** True. **Fail:** False — the picker is ignoring the cycle-1 v2 schema; the bay-memory promise from the Steam draft is not visually backed.
+
 ## The clip-render test
 
 **Run after:** day 7 (trailer cut) and day 9 (verification).
