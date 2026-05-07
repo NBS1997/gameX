@@ -250,6 +250,41 @@ Select-String -Path src/config.ts -Pattern 'MASTER_RESTORE_RAMP' -Quiet
 
 **Pass:** all three return True. **Fail:** the literals still live inline in `main.ts`, contradicting conventions §"all tunables in config.ts."
 
+## The N3 headland-fire test
+
+**Run after:** any cycle that touches `game/src/render/headlandFire.ts`, the lantern-proximity hook in `verbs/settle.ts`, the `audio.lanternIgnitesFire()` method, or the N3 wiring in `main.ts` (closure-sprint Day 5, P1 #6).
+
+**Why:** the visual partner to cycle 5's audio closure beat (P1 #7 final bell + fade-to-silence). On N3, when the first lantern crosses the headland (within ~80px of the fire position), a small disc on the headland brightens from its idle pulse to a sustained ignited state, accompanied by `audio.lanternIgnitesFire()` (sine 1080Hz, transposed +200Hz from the N1 goal-met bell). The bay *responds* to the player's "let go" verb diegetically — the world acknowledges what was sent. State machine is strict idle → ignited (no transitions back); ignition callback is idempotent (subsequent lanterns crossing don't re-fire). Fire stays out of `state.receivers` — it's an ambient response, not a verb target.
+
+### Manual feel-test (after a code change to the headland fire)
+
+1. Hard-refresh the page. Clear localStorage. Play to N3 (or use `?night=3`).
+2. **Test idle pulse.** On N3 entry, observe the headland (eastern shore around `(1700, 980)`). Confirm a small warm disc (`#ff8a4a`) pulses gently at ~1.2Hz at low amplitude. The disc is visible but quiet — this is the idle state.
+3. **Test first-ignition.** Press-and-hold near a lantern, release it eastward. As the first lantern crosses within ~80px of the fire position, confirm: (a) the fire scales-up briefly (~200ms tween) then sustains at a brightened state; (b) `audio.lanternIgnitesFire()` plays a soft warm chime (sine 1080Hz, shorter envelope than the N1 goal-met bell, lower gain).
+4. **Test idempotent ignition.** Continue sending more lanterns through the proximity zone. Confirm: only the FIRST crossing fires the chime + ignition tween. Subsequent lanterns trigger no audio and no visual change — the fire stays lit but doesn't re-ignite.
+5. **Test fire persists for the night.** Once ignited, confirm the fire stays at the brightened state for the rest of N3 (no decay, no pulse-back-to-idle).
+6. **Test fire does NOT count toward goal.** N3's goal is ≥4 lanterns past the east edge. Confirm goal-met still fires only when ≥4 lanterns are sent — the fire ignition does not satisfy `goal.minCount` on its own.
+7. **Test back-and-forth lantern.** Send a lantern toward the headland; before it crosses the proximity threshold, pull it back via the flow field (or wait for it to drift back). Then send it again. Confirm: the fire ignites only on the FIRST true crossing; if it crosses, drifts back, and crosses again, the fire stays at its existing state (no double-fire on re-cross).
+8. **Test other nights.** Replay N1 and N2. Confirm the headland fire is NOT visible (it's N3-only).
+9. **Test reduce-motion.** Windows reduce-motion ON. Replay N3. Confirm: idle pulse is omitted (the disc is static at its idle alpha); ignition tween is omitted (the disc snaps from idle to ignited brightness instantly). The audio chime fires regardless (audio is not motion).
+
+**Pass:** all eight behaviours land cleanly.
+
+### Automatable regression check (code-level)
+
+The QA agent runs these static checks from `C:\Dev\gameX\game\`:
+
+```powershell
+# P1 #6: headland fire module + audio method + level-data + main.ts wiring all present.
+Test-Path src/render/headlandFire.ts
+Select-String -Path src/audio/manager.ts -Pattern 'lanternIgnitesFire' -Quiet
+Select-String -Path src/main.ts -Pattern 'headlandFire' -Quiet
+Select-String -Path ../game/levels/night-3.delta.json -Pattern '"fire"' -Quiet
+Select-String -Path src/level/types.ts -Pattern 'AmbientDef' -Quiet
+```
+
+**Pass:** all five return True. **Fail:** the visual partner to the N3 closure beat is missing — the bay does not respond to "let go," the trailer's third-up frame has no subject (closure-sprint P1 #6 regression).
+
 ## The clip-render test
 
 **Run after:** day 7 (trailer cut) and day 9 (verification).

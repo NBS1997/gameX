@@ -1199,3 +1199,32 @@ Belt-and-braces. The back-and-forth case (cross, drift back, cross again) is ful
 
 - **QA_RESULT: PASSED_WITH_NOTES** *(automatable gate clear; browser feel-test is the remaining gate)*
 - **PR_NUMBER: N/A -- direct commit 083bccb on main**
+
+### Closure-sprint cycle 7 Review — N3 headland fire
+
+- **Verdict:** APPROVED_WITH_NOTES.
+- **Reviewer:** reviewer agent, against `083bccb` on `main`, six-file diff `0c42750..083bccb`.
+- **Spec fit (state machine):** `phase: 'idle' | 'igniting' | 'ignited'` enforced; `setIgnited()` early-returns on either non-idle phase; 200ms ease-out cubic ignition tween; 1.2Hz idle pulse with 0.15 amplitude (faint per spec); reduce-motion path omits pulse and snaps ignition tween. Beach-fire palette `#ff8a4a` fill + `#ffd966` halo per motion-and-colour bible. PASS.
+- **Spec fit (audio):** `lanternIgnitesFire()` is sine 1080Hz (= 880Hz N1 bell + 200Hz transposition). Envelope: 0.04s attack (vs goalMet's 0.05s — shorter), 0.6s decay (vs goalMet's 1.4s — shorter), peak 0.14 (vs goalMet's 0.22 — lower gain). Connects via `masterGain`. Guard `if (!ctx || !masterGain) return` present. All three envelope-difference points satisfied. PASS.
+- **Spec fit (proximity):** `settle.ts` checks BOTH `r.position.x > 1600` AND `fdist < FIRE_PROXIMITY_RADIUS` (= 80). Both predicates land. The 1600 threshold ensures eastward travel before ignition (lanterns spawn at x=200..1000). PASS.
+- **Race condition correctness (closure-sprint risk #2):**
+  - **Back-and-forth** — strict state machine forbids `'igniting'`/`'ignited'` → `'idle'`; once `setIgnited` advances, subsequent calls early-return. PASS.
+  - **Simultaneous-cross** — `settle.ts` evaluates `!fire.isIgnited()` per iteration; `isIgnited` is a getter `() => fireIgnitedThisNight` (NOT a snapshot bool). After the first lantern fires `onIgnite`, the closure flips `fireIgnitedThisNight = true` synchronously; the second lantern in the same `for...of` loop reads the fresh value via the getter and skips. PASS.
+  - **Tween-in-progress** — `isIgnited()` returns true during `'igniting'`; second crossing during the tween hits the early-return. PASS.
+- **State leak / cross-night cleanup:** `enterNight` resets `fireIgnitedThisNight = false` AND calls `headlandFire.reset()` BEFORE `setPosition`. `container.visible = firePos !== undefined && night === 3` toggles correctly on N1/N2. `headlandFire.update(dt)` gated on `scene.state.currentNight === 3` (belt-and-braces with the visibility flag). PASS.
+- **`state.receivers` purity:** `night-3.delta.json` has zero fire entries in `spawns`; the `ambient` block is a separate JSON key. `settle.ts` iterates `state.receivers.filter(r => r.type === 'lantern')` — fire is not in that list. `goal.minCount = 4` lantern count unaffected. PASS.
+- **No imports across boundaries:** `settle.ts` imports `config.ts`, `sim/fluid.ts`, `state/gameState.ts`, `level/types.ts` — no audio or render imports. Fire callback typed inline in the `updateSend` signature. Boundary clean. PASS.
+- **Stack discipline:** zero `any`; type-only `import type { Vec2 }` for the new fire param; no new runtime deps; Pixi 8 `Graphics.circle().fill()` API used correctly. PASS.
+- **No-comment policy:** one finding — `settle.ts` lines 1-5 carry a 5-line block comment dating to day-7 of Phase 3 (when the third-verb adjudication was provisional). Carry-forward, not introduced by cycle 7, but appears in the diff because the file was touched. The `headlandFire.ts` invariant comment at `setIgnited` (`// No transitions back — strict idle → igniting → ignited state machine.`) is single-line, within policy.
+- **Ethics ban list:** clean. Audio-only synthesis + render-only graphics; no UI text, notifications, analytics, fetch/network, or forbidden UI strings.
+- **A11y:** reduce-motion sampled per-frame in `update()` (consistent with moonrise/intentBeat pattern). Pulse omitted in reduced branch; ignition snaps to ignited without tween. PASS.
+- **No regressions cycles 1-6:** all prior fixes intact. Cycle 5 N3 closure scheduler (final bell + fade) and cycle 7 fire ignition coexist cleanly (different goal-met phases — fire ignites BEFORE goal-met on each lantern crossing; bell fires AT goal-met). Cycle 6 cursor-tether `setEnabled(true)` in `enterNight` confirmed present.
+- **Performance:** proximity check is per-unsent-lantern-per-frame (≤6 on N3); `Math.sqrt` on two floats + comparison + getter call — well within budget. `fireArg` allocated once per frame in main.ts before the verb-update; settle.ts has no allocations in the hot path. PASS.
+- **Resolution of carry-forward comment:** orchestrator removed the 5-line block in `settle.ts` lines 1-5 in-session (same pattern as cycles 4, 6). The file is self-documenting via its filename + `updateSend` function name + the discriminated-union switch in `main.ts`. Build-log is the right home for design rationale.
+- **Notes (no further code change requested):**
+  1. **Two-layer ignition guard.** Both `settle.ts` (`!fire.isIgnited()` getter check) and the `onIgnite` callback in `main.ts` (`if (fireIgnitedThisNight) return`) provide independent re-fire prevention. Belt-and-braces; correct given the for-loop iteration semantics.
+  2. **Mid-cycle carry-forward fix.** Comment trim was a single-line removal, fixed orchestrator-side per cycle-4/cycle-6 precedent. Pattern continues to hold for small cleanup-shaped reviewer notes.
+- **Remaining gate:** browser feel-test (QA's pending human pass on the 9 N3 headland-fire test steps in `feel-test-protocol.md`).
+
+- **REVIEW_RESULT: APPROVED_WITH_NOTES**
+- **PR_NUMBER: N/A — direct commits `083bccb` (P1 #6 ship) + `d5a4681` (QA build-log entry) on main; comment trim follows in the doc-update commit.**

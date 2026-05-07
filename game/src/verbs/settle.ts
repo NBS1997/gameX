@@ -1,9 +1,3 @@
-// Night-3 verb. Per design-spec Open Question #1 and tech-plan §6, the slice
-// ships "send" (paper lanterns released east on the tide) as the third verb.
-// Two specialists converged on it independently in Round 4. If the user
-// adjudicates differently at the day-7 trailer checkpoint, this file is the
-// only thing that changes.
-
 import { LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../config.ts';
 import { FluidGrid } from '../sim/fluid.ts';
 import { startSoftDrift, type GameState } from '../state/gameState.ts';
