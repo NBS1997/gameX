@@ -33,6 +33,7 @@ export interface AudioManager {
   fadeToSilence(durationS: number): void;
   restoreMaster(rampS: number): void;
   lanternIgnitesFire(): void;
+  heronSettleChime(): void;
 }
 
 export function createAudioManager(): AudioManager {
@@ -282,6 +283,22 @@ export function createAudioManager(): AudioManager {
     osc.stop(now + 0.7);
   };
 
+  const heronSettleChime = (): void => {
+    if (!ctx || !masterGain) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 587; // 880 * 2^(-7/12), perfect-fifth below N1's bell
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.18, now + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+    osc.connect(gain);
+    gain.connect(masterGain);
+    osc.start(now);
+    osc.stop(now + 1.3);
+  };
+
   return {
     get started() {
       return started;
@@ -298,6 +315,7 @@ export function createAudioManager(): AudioManager {
     fadeToSilence,
     restoreMaster,
     lanternIgnitesFire,
+    heronSettleChime,
   };
 }
 

@@ -453,3 +453,67 @@ npm run lint                                                                    
    ```
    Reload the tab. Picker shows N3 selectable, ghost silhouettes render for N1 at the picker (cycle-9 pattern), and `localStorage['neap/save/v3']` exists with the migrated data; `localStorage['neap/save/v2']` is left in place defensively.
 9. **Reduce-motion check (no behaviour change for sub-cycle A).** OS reduce-motion ON, repeat steps 1–6. The picker, cursor, title-card, and water-pull behaviours are unchanged from existing nights — sub-cycle A introduces no new motion.
+
+## The N4 withhold-verb test (sub-cycle B — verb + heron + audio land; intent-beat is sub-cycle C)
+
+**Automatable static checks** (run from `game/`):
+
+```powershell
+# 1. Verb file exists.
+Test-Path src/verbs/withhold.ts                                                          # -> True
+
+# 2. Render module exists.
+Test-Path src/render/heron.ts                                                            # -> True
+
+# 3. Heron state machine phases all present.
+Select-String -Path src/render/heron.ts -Pattern "'idle'" -Quiet                         # -> True
+Select-String -Path src/render/heron.ts -Pattern "'approaching'" -Quiet                  # -> True
+Select-String -Path src/render/heron.ts -Pattern "'recoiling'" -Quiet                    # -> True
+Select-String -Path src/render/heron.ts -Pattern "'preLift'" -Quiet                      # -> True
+Select-String -Path src/render/heron.ts -Pattern "'lifting'" -Quiet                      # -> True
+Select-String -Path src/render/heron.ts -Pattern "'gone'" -Quiet                         # -> True
+
+# 4. Audio method.
+Select-String -Path src/audio/manager.ts -Pattern 'heronSettleChime' -Quiet              # -> True
+Select-String -Path src/audio/manager.ts -Pattern '587' -Quiet                           # -> True
+
+# 5. main.ts wiring.
+Select-String -Path src/main.ts -Pattern 'updateWithhold' -Quiet                         # -> True
+Select-String -Path src/main.ts -Pattern 'heron\.update' -Quiet                          # -> True
+Select-String -Path src/main.ts -Pattern 'heron\.reset' -Quiet                           # -> True
+Select-String -Path src/main.ts -Pattern 'heron\.triggerRecoil' -Quiet                   # -> True
+Select-String -Path src/main.ts -Pattern 'heronSettleChime' -Quiet                       # -> True
+
+# 6. config.ts feel-tuning constants.
+Select-String -Path src/config.ts -Pattern 'WITHHOLD_RING_R' -Quiet                      # -> True
+Select-String -Path src/config.ts -Pattern 'WITHHOLD_DWELL_RISE' -Quiet                  # -> True
+Select-String -Path src/config.ts -Pattern 'WITHHOLD_PRE_LIFT_DWELL' -Quiet              # -> True
+
+# 7. Perimeter — banned identifiers (case-sensitive).
+Select-String -Path src -Pattern 'creatureTrust|bond|affinity|friendship' -Recurse -CaseSensitive
+# (expect: zero matches in NEW code; pre-existing matches if any are recorded in cycle-10 review)
+
+# 8. Save-schema unchanged.
+git diff ce651c6..HEAD -- src/state/save.ts
+# (expect: no SaveDataV3 interface body changes; v3 read order unchanged)
+
+# 9. Picker — explicit night-4 clause.
+Select-String -Path src/scenes/nightPicker.ts -Pattern 'night === 4' -Quiet              # -> True
+
+# 10. tsc + lint clean.
+npx tsc --noEmit                                                                          # -> exit 0
+npm run lint                                                                              # -> exit 0
+```
+
+**Manual feel-test steps** (browser, run `npm run dev` from `game/`):
+
+1. Fresh tab, clear `localStorage`, complete N1 -> N2 -> N3 -> reach N4 selectable. Press N4. Title card "Last quarter. The bay holds what was given." holds 3000 ms, fades 400 ms.
+2. After title fades, the heron is visible at the eastern foam line (`x ≈ 1700, y ≈ 880`). It's standing, body roughly upright, with a faint cool halo. Idle micro-tilt is visible but subtle (±2°, slow 4.3s cycle).
+3. Hover the cursor over the bay (no press). The pull-radius ring brightens slightly as the cursor enters within 220 px of the heron. The brightening is smooth (smoothstep), not linear.
+4. Press-and-hold near the heron, **keep the cursor still**. Within ~2.5 seconds the heron's wings stretch out (pre-lift wing-stretch). Continue holding still. The heron lifts on a single slow wingbeat, translates east-and-up over ~2.4s, and exits the frame. A 587 Hz settle chime plays as the lift starts; the existing final-bell + fade-to-silence + master-restore chain fires per N3's pattern.
+5. **Hard-pull recoil:** restart N4 (free-reentry should be enabled after step 4). Press-and-hold and rapidly move the cursor across the heron (faster than 220 px/s within 90 px of it). The heron does a single 350 ms ease-out body-shift away from the cursor (along the cursor->heron unit vector, clamped above the foam line). It does NOT die, NOT flee permanently. Stop moving — the heron settles back to idle. Subsequent stillness re-grows `dwellT` toward the goal threshold. **No failure surface, no modal, no "RETRY?"**.
+6. **Withhold without press:** restart N4. Move the cursor near the heron (within 220 px) and **don't press at all**. `dwellT` should still rise (lifting the press counts as stillness too); after ~2.5s the heron lifts.
+7. **Reduce-motion check.** OS reduce-motion ON. Restart N4. Heron's idle is a static pose (no micro-tilt). Approach is an instant 100ms alpha pulse 0.85->1->0.85. Recoil is omitted (alpha pulse only). Pre-lift wing-stretch is an instant scale-pose. Lift is a 600ms alpha-fade in place (no translation).
+8. **Cursor-tether suppression.** On entering N4 the foam-line cursor tether is disabled (alpha 0 / invisible). On returning to picker -> N1, the tether is restored.
+9. **Save schema unchanged.** Open DevTools -> Application -> localStorage. `neap/save/v3` exists with completedNights including 4 after step-4 success. **No new fields about the heron** (no `heronSeen`, `lastHeronVisitAt`, `heronTrust`, etc).
+10. **Perimeter check.** Throughout the session, no UI text mentions "heron," "creature," "trust," "bond," "friend," etc. The game is wordless about it; the player meets the heron silently.

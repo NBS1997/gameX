@@ -424,3 +424,53 @@ N4 is **not** a "secret level," "bonus content," "new ending," or "twist" advert
 ## Stage-3 substitution traceability
 
 This document substitutes for the captain protocol's `superpowers:brainstorming` user-approval hard-gate per the explicit substitution clause in the Captain skill's NEW_FEATURE stack step 1. The eight-specialist Stage-3 ratification (cycle 10 retro: 8/8 NEW_FEATURE; cluster A picked at mean URG 4.5) constitutes the user-approval. The user's verbatim cycle-10 nudge — *"the team have done a great job but it is time for them to bring something new. I'm looking for actual creativity from the team — they are to build without my input other than I want to be impressed."* — explicitly delegates creative authority to the team and is a stronger signal than the brainstorming skill's user-checkpoint. Recorded here for traceability.
+
+---
+
+## Cycle 11 retro refinements (sub-cycle B implementation clarifications)
+
+Cycle 11's eight-specialist retro converged 8/8 on sub-cycle B (mean URG 4.75, the loop's highest). Four UX refinements + three architectural clarifications + one feel-tuning principle were surfaced and are codified here as authoritative for sub-cycle B's plan-write and dev-agent dispatch. These do not redesign N4 — they tighten ambiguities the cycle-10 design memo left coin-flip-shaped.
+
+### UX refinements (ux-designer cycle-11 retro)
+
+1. **Cursor-tether disable timing.** On `enterNight(4)`, the cursor-tether fades to alpha 0 over **250 ms ease-out**, not an instant cut. Instant cut would read as a glitch given the tether is the player's anchor for what "near" means.
+2. **Recoil body-shift direction.** The 18 px shift is along the **unit vector from cursor to heron** (away from cursor), not along a fixed eastward axis, **clamped so the heron never crosses below the foam line** (y-floor enforced).
+3. **Pre-lift wing-stretch independence.** Pre-lift starts at `dwellT >= 0.85` and runs its own **1500 ms clock**. It does **NOT** gate on or sync to the existing held-success savour window — that fires only at the goal-met edge.
+4. **Brightness modulation easing.** Pull-radius alpha ramp `BASE + 0.15 * dwellT` uses `smoothstep(dwellT)` curve, **not raw linear**. Raw linear reads as twitchy at low `dwellT` values where the player most needs the "is it registering?" signal.
+
+### Architectural clarifications (reviewer cycle-11 retro)
+
+5. **`dwellT` lives in `state.goalProgress`.** Extends the `still` `GoalProgress` discriminant from cycle 10 (which already has `dwellT: number`). The heron render module reads `dwellT` as input but does NOT own it. This is what cycle 10's design memo specs in §"The receiver — heron render module"; cycle 11 makes the contract explicit for sub-cycle B's dispatch.
+6. **`gone` is a single post-lift terminal.** No "outsideN4" variant. `heron.reset()` runs on every `enterNight(4)` to return phase to `idle`, so `gone` is only ever transiently terminal within a single night-session.
+7. **`cursorTether.setEnabled(false)` fires unconditionally in `enterNight` for N4.** Not conditional on heron proximity. The N4 night has zero in-state.receivers anyway, so the tether has nothing to render to.
+
+### Perimeter enforcement (habit-formation cycle-11 retro)
+
+8. **Pre-commit grep gate on banned identifiers.** Before sub-cycle B's commit lands, orchestrator runs:
+   ```powershell
+   Select-String -Path game/src -Pattern 'creatureTrust|bond|affinity|friendship|trust' -Recurse -CaseSensitive | Where-Object { $_.Line -notmatch '//.*existing-comment-allowlist' }
+   ```
+   Expected: zero matches. Any match in NEW code is a blocking perimeter violation; pre-existing matches in the cycle-10 commit (verified clean by reviewer) stand.
+9. **`SaveDataV3` byte-identical to sub-cycle-A shape.** Sub-cycle B adds zero fields to `SaveDataV3`. Verified by `git diff ce651c6..HEAD -- game/src/state/save.ts` showing no interface changes after sub-cycle A.
+10. **Canonical constant names.** The `0.85` pre-lift threshold is named `PRE_LIFT_DWELL` (NOT `TRUST_THRESHOLD`, `BOND_THRESHOLD`, `RELATIONSHIP_LEVEL`). Mirrors the `dwellT` naming choice from cycle 10.
+
+### Feel-tuning principle (gamification cycle-11 retro)
+
+11. **All feel-tuning constants exposed to `config.ts` from frame zero.** `DWELL_RISE`, `DWELL_FALL`, `STILL_V`, `SHY_V`, `RING_R`, `HARD_R`, `SHY_BLEED`, `TOUCH_DWELL`, `PRE_LIFT_DWELL`, plus any motion durations not already on the heron render module's named constants. Sub-cycle C's feel-test pass should be able to re-tune without touching `verbs/withhold.ts` or `render/heron.ts`. This follows the cycle-5 pattern (closure-beat literals → cycle-6 extracted to `config.ts` after reviewer note).
+
+### Cycle-10 reviewer carry-overs (bundled into sub-cycle B per pm cycle-11)
+
+12. **`Record<LunarPhase, readonly RGB[]>` typing in `config.ts:51`** — replace inline union with imported `LunarPhase` type so future phase additions don't drift.
+13. **`isNightSelectable` explicit night-4 clause in `nightPicker.ts:100`** — currently the final `return meta.completedNights.has(3)` covers night 4 implicitly; make it explicit:
+    ```ts
+    if (night === 4) return meta.completedNights.has(3);
+    return false;  // unreachable; defensive default
+    ```
+
+### Dispatch-text watch-outs (qa-agent cycle-11 retro)
+
+The two highest-blocker-risk surfaces in sub-cycle B are:
+- **`dwellT` wiring call-site** — the per-frame call from `main.ts` into `updateWithhold` must thread the cursor velocity correctly. Cycle-7's `fireArg` pattern is the reference; the analogous `withholdArg` shape is `{ heron: { position }, dwellT (read-only from goalProgress), cursorVelocity, isPressed }`.
+- **Heron `idle ↔ approaching ↔ recoiling` recoil-cooldown edge** — the `recoilCooldownUntil` timestamp must reset on `enterNight` and must NOT leak across night transitions.
+
+These watch-outs go into the sub-cycle B dispatch text verbatim.

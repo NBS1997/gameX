@@ -45,6 +45,8 @@ import { loadSave, writeSave } from './state/save.ts';
 import { updateGather } from './verbs/gather.ts';
 import { updateGuide } from './verbs/guide.ts';
 import { updateSend } from './verbs/settle.ts';
+import { createHeron, type Heron } from './render/heron.ts';
+import { updateWithhold } from './verbs/withhold.ts';
 import './style.css';
 
 const HELD_SUCCESS_HOLD_MS = 2500;
@@ -96,6 +98,9 @@ worldLayer.addChild(intentBeat.container);
 const headlandFire = createHeadlandFire();
 worldLayer.addChild(headlandFire.container);
 
+const heron: Heron = createHeron();
+worldLayer.addChild(heron.container);
+
 const ambientLife = createAmbientLife();
 worldLayer.addChild(ambientLife.container);
 
@@ -127,6 +132,8 @@ let postCompleteMs = 0;
 let pendingFinalBell: ReturnType<typeof setTimeout> | null = null;
 let pendingFadeToSilence: ReturnType<typeof setTimeout> | null = null;
 let fireIgnitedThisNight = false;
+let heronGoalMetThisNight = false;
+let prevCursorPos: { x: number; y: number } = { x: 0, y: 0 };
 
 interface NightScene {
   kind: 'night';
@@ -229,9 +236,27 @@ app.ticker.add((ticker) => {
           updateSend(scene.state, grid, dt, fireArg);
           break;
         }
-        case 'still':
-          // Sub-cycle A: mechanically inert; updateWithhold lands in sub-cycle B.
+        case 'still': {
+          const heronPosition = scene.state.level.night.ambient?.heron;
+          if (heronPosition !== undefined) {
+            const cursorVelocity = Math.sqrt(
+              (pointer.x - prevCursorPos.x) ** 2 + (pointer.y - prevCursorPos.y) ** 2,
+            ) / Math.max(dt, 0.001);
+            updateWithhold(scene.state, dt, {
+              heronPosition,
+              cursorPosition: { x: pointer.x, y: pointer.y },
+              cursorVelocity,
+              isPressed: pointer.holding,
+              onShy: () => heron.triggerRecoil(),
+              onGoalMet: () => {
+                if (heronGoalMetThisNight) return;
+                heronGoalMetThisNight = true;
+                audio.heronSettleChime();
+              },
+            });
+          }
           break;
+        }
       }
     }
 
@@ -254,11 +279,23 @@ app.ticker.add((ticker) => {
       headlandFire.update(dt);
     }
 
+    if (scene.state.currentNight === 4) {
+      const dwellT =
+        scene.state.goalProgress.kind === 'still'
+          ? scene.state.goalProgress.dwellT
+          : 0;
+      heron.update(dt, {
+        dwellT,
+        cursorPos: { x: pointer.x, y: pointer.y },
+        goalComplete: scene.state.goalProgress.complete,
+      });
+    }
+
     const goalNowComplete = isGoalComplete(scene.state);
     if (goalNowComplete && !wasGoalComplete) {
       audio.goalMet();
       postCompleteMs = 0;
-      if (scene.state.currentNight === 3) {
+      if (scene.state.currentNight === 3 || scene.state.currentNight === 4) {
         pendingFinalBell = setTimeout(() => {
           audio.finalBell();
           pendingFinalBell = null;
@@ -298,11 +335,20 @@ app.ticker.add((ticker) => {
 
   cursor.setHoldStrength(pointer.holding ? holdT : 0);
 
+  if (activeScene.kind === 'night' && activeScene.state.currentNight === 4 && activeScene.state.goalProgress.kind === 'still') {
+    const dwellT = activeScene.state.goalProgress.dwellT;
+    const eased = dwellT * dwellT * (3 - 2 * dwellT); // smoothstep(dwellT)
+    cursor.setRingAlphaBoost(0.15 * eased);
+  } else {
+    cursor.setRingAlphaBoost(0);
+  }
+
   const driftAlpha =
     activeScene.kind === 'night' ? activeScene.state.softDrift.cursorAlpha : 1;
   cursor.container.alpha = driftAlpha * moonriseCursorAlpha.value;
   cursor.container.position.set(pointer.x, pointer.y);
   wasHolding = pointer.holding;
+  prevCursorPos = { x: pointer.x, y: pointer.y };
 });
 
 function applyHeldSuccessEase(elapsedMs: number): void {
@@ -344,11 +390,11 @@ function enterNight(night: NightNumber): void {
     pendingFadeToSilence = null;
   }
   if (audio.started) audio.restoreMaster(MASTER_RESTORE_RAMP_S);
-  cursorTether.setEnabled(true);
   postCompleteMs = 0;
   wasGoalComplete = false;
   wasSoftDriftActive = false;
   fireIgnitedThisNight = false;
+  heronGoalMetThisNight = false;
   headlandFire.reset();
 
   if (activeScene.kind === 'night') {
@@ -364,6 +410,21 @@ function enterNight(night: NightNumber): void {
   headlandFire.container.visible = firePos !== undefined && night === 3;
   if (firePos !== undefined && night === 3) {
     headlandFire.setPosition(firePos);
+  }
+
+  heron.reset();
+  const heronPos = level.night.ambient?.heron;
+  heron.container.visible = night === 4 && heronPos !== undefined;
+  if (heronPos !== undefined) {
+    heron.setPosition(heronPos);
+  }
+
+  if (night === 4) {
+    // Cycle-11 UX refinement #1: fade tether over 250ms; cursorTether has no fadeOut method,
+    // so using setEnabled(false) directly — deferred smooth fade noted as sub-cycle C polish.
+    cursorTether.setEnabled(false);
+  } else {
+    cursorTether.setEnabled(true);
   }
 
   const ghosts = ghostsForNight(meta, night);

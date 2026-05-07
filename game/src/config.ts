@@ -1,3 +1,5 @@
+import type { LunarPhase } from './level/types.ts';
+
 export const LOGICAL_WIDTH = 1920;
 export const LOGICAL_HEIGHT = 1080;
 
@@ -48,10 +50,7 @@ interface RGB {
   b: number;
 }
 
-export const WATER_PALETTES: Record<
-  'waxing-crescent' | 'full' | 'waning-gibbous' | 'last-quarter',
-  readonly RGB[]
-> = {
+export const WATER_PALETTES: Record<LunarPhase, readonly RGB[]> = {
   // Waxing crescent: the canonical palette — cool, intimate, slightly cooler.
   'waxing-crescent': [
     { r: 0x0e, g: 0x17, b: 0x22 },
@@ -94,3 +93,15 @@ export const N3_FINAL_BELL_DELAY_MS = 1500;
 export const N3_FADE_TO_SILENCE_DELAY_MS = 3500;
 export const N3_FADE_TO_SILENCE_DURATION_S = 4;
 export const MASTER_RESTORE_RAMP_S = 0.4;
+
+// N4 withhold feel-tuning (cycle 11 sub-cycle B; tuned in sub-cycle C feel-test).
+export const WITHHOLD_RING_R = 220;
+export const WITHHOLD_HARD_R = 90;
+export const WITHHOLD_STILL_V = 25;
+export const WITHHOLD_SHY_V = 220;
+export const WITHHOLD_DWELL_RISE = 0.45;
+export const WITHHOLD_DWELL_FALL = 0.35;
+export const WITHHOLD_SHY_BLEED = 0.6;
+export const WITHHOLD_TOUCH_DWELL = 1.0;
+export const WITHHOLD_PRE_LIFT_DWELL = 0.85;
+export const WITHHOLD_RECOIL_COOLDOWN_MS = 2000;

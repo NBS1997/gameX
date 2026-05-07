@@ -20,6 +20,7 @@ const PULL_RADII: Record<LunarPhase, number> = {
 export interface MoonCursor {
   container: Container;
   setHoldStrength(t: number): void;
+  setRingAlphaBoost(boost: number): void;
 }
 
 export function makeCursorForPhase(phase: LunarPhase): MoonCursor {
@@ -51,11 +52,17 @@ export function makeCursorForPhase(phase: LunarPhase): MoonCursor {
   }
   container.addChild(disc);
 
+  let ringBoost = 0;
+
   const setHoldStrength = (t: number): void => {
     const clamped = Math.max(0, Math.min(1, t));
-    ring.alpha = 0.18 + 0.45 * clamped;
+    ring.alpha = 0.18 + 0.45 * clamped + ringBoost;
     disc.scale.set(1 + 0.06 * clamped);
   };
 
-  return { container, setHoldStrength };
+  const setRingAlphaBoost = (boost: number): void => {
+    ringBoost = boost;
+  };
+
+  return { container, setHoldStrength, setRingAlphaBoost };
 }

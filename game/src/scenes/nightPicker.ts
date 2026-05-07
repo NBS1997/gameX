@@ -97,7 +97,8 @@ function isNightSelectable(night: NightNumber, meta: MetaState): boolean {
   if (night === 1) return true;
   if (night === 2) return meta.completedNights.has(1);
   if (night === 3) return meta.completedNights.has(2);
-  return meta.completedNights.has(3);
+  if (night === 4) return meta.completedNights.has(3);
+  return false;
 }
 
 function collectGhostsByNight(
