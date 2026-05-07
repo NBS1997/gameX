@@ -1328,3 +1328,115 @@ Belt-and-braces. The back-and-forth case (cross, drift back, cross again) is ful
   - The `dwellSeconds: 2.22` constant in `night-4.delta.json` is a placeholder feel-tuning value. Sub-cycle B's feel-test will tune.
   - Pre-existing regression false-negative: the feel-test-protocol cycle-3 check `Select-String -Path src/main.ts -Pattern "'intentBeat'" -Quiet` returns False because the string `'intentBeat'` (with quotes) does not appear in `main.ts` — the import uses `'./render/intentBeat.ts'`. This was false before cycle 10 (pattern bug, not a code regression). Not introduced by this cycle.
   - `isNightSelectable` in the plan had the `night === 3` branch implicit in the final `return`; this cycle made it explicit for clarity and correctness with the four-way chain.
+
+
+## Captain cycle 10 Review — N4 schema scaffolding
+
+### Cycle 10 Review — 2026-05-07
+- **Verdict:** APPROVED
+- **Commit reviewed:** ff1174c
+- **Acceptance fit:** Sub-cycle A scope is exactly honoured — types, level data, loader, save migration, meta, gameState, main.ts exhaustiveness stubs, cursor glyph, picker four-slot layout, title card. No sub-cycle B/C scope creep (`withhold.ts`, `heron.ts`, `intentBeat.ts` N4 path, `motion-and-colour-bible.md` all absent from diff).
+- **Stack discipline:** Clean. TypeScript strict throughout; no `any`; no new runtime deps (package.json unchanged). The single new comment at `case 'still':` is one short line, within conventions §131. Multi-line comment block at main.ts:140–143 is pre-existing. Timings / radii / palette values match motion-and-colour-bible and design memo exactly.
+- **Ethics ban list:** Clean. Banned variable names (`creatureTrust`, `bond`, `affinity`, `friendship`) absent from codebase. No heron-related fields in save schema (v3 adds zero new fields vs v2). No `lastSeenAt`, `visitCount`, `creatureKnowsYou`. Title card line contains no creature mention. No `Date()`, no real-world tie-in. localStorage keys are `neap/save/v3`, `neap/save/v2` (legacy read), `tide-pull/save/v1` (legacy read) — no new keys introduced. No analytics, fetch, WebSocket. No streak/leaderboard/share/badge strings introduced.
+- **Save schema:** Migration chain v3 → v2 → v1 → empty is correct with independent try/catch blocks at each step. `filterNights` and `filterGhosts` both extended to include `n === 4`. v2 lifts shape unchanged (no field delta between v2 and v3). `writeSave` correctly targets `SAVE_KEY`. Edge cases (empty `completedNights` array, future night in a v2 blob) handled cleanly by the `filterNights` whitelist validator.
+- **Picker correctness:** `(idx - 1.5) * SLOT_SPACING` centres four slots symmetrically (offsets: −1.5, −0.5, +0.5, +1.5 × SLOT_SPACING). `isNightSelectable` linear gate: N1 always open, N2 after N1, N3 after N2, N4 after N3 via final return `meta.completedNights.has(3)`; completed nights blocked by the early `has(night)` guard. `freeReentry` fires at `size === 4`. Cycle-9 ghost rendering logic (`collectGhostsByNight`) is unaffected — heron is not a receiver and N4 spawns are empty.
+- **Type-level correctness:** `NightNumber = 1 | 2 | 3 | 4` flows correctly through loader, meta, save, nightPicker, gameState. `LunarPhase` extended to include `'last-quarter'` and all `Record<LunarPhase, ...>` sites updated: `audio/manager.ts` PHASE_CUTOFF + PHASE_BED_GAIN, `config.ts` WATER_PALETTES, `render/cursor.ts` PULL_RADII + switch, `render/titleCard.ts` TITLE_STRINGS. `GoalProgress | still` flows through `initialGoalProgress`, `recoverFromSoftDrift`, `isGoalComplete`, and the verb-switch. `AmbientDef.heron?: Vec2` correctly positioned in `types.ts`; heron is in `ambient`, not in `state.receivers`.
+- **Cursor glyph:** 26 px disc, `#e7ddc8` fill, `#2c2a26` shadow at `-8` x-offset (leading hemisphere, opposite N3’s `+8` trailing shadow). Pull radius 95 px. All values match the design memo exactly.
+- **Architectural fit:** `audio/manager.ts` deviation is two Record entries only — no new methods, no `AudioManager` interface change, no behaviour change. `WATER_PALETTES` in `config.ts` uses an inline union type rather than `Record<LunarPhase, ...>` — structurally equivalent for now since the two unions are identical, but will silently diverge if `LunarPhase` extends beyond N4 without a corresponding `config.ts` update. Noted for sub-cycle B.
+- **Cycles 1–9 regressions:** No regressions detected. The pre-existing `'intentBeat'` pattern false-negative in `feel-test-protocol.md` (pattern bug, not a code regression) is correctly documented by the dev-agent.
+
+**Notes for sub-cycle B (non-blocking):**
+- `WATER_PALETTES` in `game/src/config.ts:51` should be typed as `Record<LunarPhase, readonly RGB[]>` with an import of `LunarPhase` from `'../level/types.ts'` so it stays automatically in sync with future `LunarPhase` additions. Currently the inline union and `LunarPhase` are identical, so this is zero-risk deferred cleanup.
+- `isNightSelectable` final `return meta.completedNights.has(3)` covers night 4 implicitly — acceptable given the game’s fixed four-night structure, but worth making explicit (`if (night === 4) return meta.completedNights.has(3)`) if a future cycle touches this function.
+
+- **REVIEW_RESULT: APPROVED**
+- **PR_NUMBER: N/A — direct commit ff1174c on main**
+
+### Captain cycle 10 QA — N4 schema scaffolding (sub-cycle A) — 2026-05-07
+
+- **Automatable acceptance: 34/34 PASSED.**
+  - `npx tsc --noEmit` — exit 0. PASSED.
+  - `npm run lint` — exit 0. PASSED.
+  - N4 schema-only test (feel-test-protocol §"The N4 schema-only test", items 1–9) — all 23 Select-String / parse checks return expected result. PASSED.
+  - Cycles 1–9 regression suite — 12/12 code-level regression anchors intact. PASSED.
+  - Spec-contract checks — all 8 contract checks PASSED (detail below).
+  - Ethics-perimeter sweep — CLEAN.
+
+- **N4 schema-only static checks (23/23):**
+  1. `levels/night-4.delta.json` exists — True.
+  2. `night-4.delta.json` parses — no throw.
+  3. `types.ts` contains `'last-quarter'` — True.
+  4. `types.ts` contains `'still'` — True.
+  5. `types.ts` contains `StillGoal` — True.
+  6. `types.ts` contains `1 | 2 | 3 | 4` — True.
+  7. `types.ts` contains `heron?: Vec2` — True.
+  8. `loader.ts` contains `night-4.delta.json` — True.
+  9. `loader.ts` contains `4: night4Json` — True.
+  10. `save.ts` contains `'neap/save/v3'` — True.
+  11. `save.ts` contains `'neap/save/v2'` (legacy key) — True.
+  12. `save.ts` contains `version: 3` — True.
+  13. `save.ts` contains `n === 4` — True.
+  14. `meta.ts` contains `size === 4` — True.
+  15. `meta.ts` contains `completedNights.has(4)` — True.
+  16. `nightPicker.ts` contains `1, 2, 3, 4` — True.
+  17. `nightPicker.ts` contains `'last-quarter'` — True.
+  18. `nightPicker.ts` contains `idx - 1.5` — True.
+  19. `cursor.ts` contains `'last-quarter'` — True.
+  20. `titleCard.ts` contains `'last-quarter'` — True.
+  21. `titleCard.ts` contains `Last quarter` — True.
+  22. `main.ts` contains `case 'still'` — True.
+  23. `gameState.ts` contains `kind: 'still'` — True.
+
+- **Cycles 1–9 regression suite (12/12):**
+  - Cycle 1: `prefersReducedMotion` in `moonrise.ts` — True.
+  - Cycle 2: `SAVOUR_MIN_MS` in `main.ts` — True.
+  - Cycle 3: `intentBeat.ts` exists — True. `intentBeat` referenced in `main.ts` — True. (Pre-existing false-negative on quoted-string protocol pattern `'intentBeat'`; module correctly wired; pattern bug predates cycle 10.)
+  - Cycle 4: `OQ18` comment in `main.ts` — True.
+  - Cycle 5: `finalBell`, `fadeToSilence`, `restoreMaster` in `audio/manager.ts` — all True.
+  - Cycle 6: `cursorTether.ts` exists — True. `cursorTrail.ts` absent — True. `N3_FINAL_BELL_DELAY_MS` in `config.ts` — True.
+  - Cycle 7: `headlandFire.ts` exists — True. `lanternIgnitesFire` in `audio/manager.ts` — True.
+  - Cycle 9: `PICKER_GHOST` in `nightPicker.ts` — True. `sessionGhosts.has` in `nightPicker.ts` — True.
+
+- **Spec-contract checks (8/8):**
+  1. `night-4.delta.json` valid NightDelta shape — `lunarPhase: "last-quarter"`, `pullStrength: 0.75`, `pullRadius: 95`, `spawns: []`, `goal.kind: "still"` with `proximityRadius: 220 / hardRadius: 90 / dwellSeconds: 2.22`, `ambient.heron: {x: 1700, y: 880}`. CONFIRMED.
+  2. `loader.ts` registers night 4 at `nights[4]`. CONFIRMED.
+  3. `nightPicker.ts` renders `[1, 2, 3, 4]` slots; `isNightSelectable` chain through night 4 (`meta.completedNights.has(3)` in final `return`); `(idx - 1.5)` centring. CONFIRMED.
+  4. `save.ts` migration shape: read order v3 -> v2 -> v1 -> empty; `version: 3` written; defensive `try`/`catch` on all three parse paths; `filterNights` and `filterGhosts` extend to night 4. CONFIRMED.
+  5. `gameState.ts` `GoalProgress` includes `{ kind: 'still'; dwellT: number; complete: boolean }`; `initialGoalProgress` returns `{ kind: 'still', dwellT: 0, complete: false }`; `recoverFromSoftDrift` resets `dwellT` to 0 on `still`. CONFIRMED.
+  6. `main.ts` `case 'still':` no-op branch with one-line comment per conventions §131. CONFIRMED.
+  7. `cursor.ts` `last-quarter` glyph: 26 px disc fill `0xe7ddc8`, shadow circle at `(-8, 0)` radius 22 fill `0x2c2a26` alpha 0.55 — leading hemisphere shadow (opposite of waning-gibbous `+8` trailing-hemisphere). CONFIRMED.
+  8. `titleCard.ts` `'last-quarter'` line: `'Last quarter.  The bay holds what was given.'` (two spaces between sentences). CONFIRMED.
+
+- **Dev-agent deviation verification:**
+  - `audio/manager.ts` — `PHASE_CUTOFF['last-quarter'] = 1100`, `PHASE_BED_GAIN['last-quarter'] = BED_GAIN * 0.88`. Structurally consistent with existing three entries; required by TypeScript `Record<LunarPhase, number>` exhaustiveness; no new audio methods; no `heronSettleChime` (sub-cycle B). CONFIRMED ACCEPTABLE.
+  - `config.ts` `WATER_PALETTES` last-quarter five-stop palette — all five hex values match the N4 design memo colour table exactly. CONFIRMED.
+  - `main.ts` extensions — `LunarPhase` import, `isGoalComplete` `'still'` arm, `currentLunarPhase` return type `LunarPhase`, `overrideNight` accepts `'4'`. All exhaustiveness no-ops; no behavioural change in sub-cycle A. CONFIRMED.
+
+- **Ethics-perimeter sweep: CLEAN.**
+  - Analytics imports (`sentry`, `posthog`, `plausible`, `mixpanel`, `analytics`, `gtag`, `ga(`, `googletagmanager`): zero matches in `src/`.
+  - Network APIs (`fetch(`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `navigator.sendBeacon`, `new Notification`): zero matches in `src/`.
+  - `localStorage` keys: `setItem` uses only `neap/save/v3`; `getItem` reads v3 + v2 (legacy read-only) + `tide-pull/save/v1` (legacy read-only). No new keys. CLEAN.
+  - Forbidden UI strings (`wishlist`, `share`, `follow`, `streak`, `leaderboard`, `notification`): zero matches. CLEAN.
+  - Runtime deps: `{"pixi.js": "^8.18.1"}` only. CLEAN.
+  - Heron ethics perimeter: no `creatureTrust`, `bond`, `affinity`, `friendship`, `lastSeenAt`, `visitCount`, `creatureKnowsYou` anywhere in `src/`. No heron fields in save schema. CLEAN.
+
+- **Regressions: none found.**
+
+- **Notes:**
+  - `audio/manager.ts` and `config.ts` deviated from plan scope; both deviations were forced by TypeScript `Record<LunarPhase, ...>` exhaustiveness and are correct. Reviewer should confirm acceptance.
+  - `WATER_PALETTES` type key uses an explicit string-literal union rather than `Record<LunarPhase, ...>`. Future `LunarPhase` extension would not auto-flag this map. Low-severity observation; not a regression.
+  - N4 deliberately cannot complete in sub-cycle A. Feel-test step 6 confirms this expected behaviour.
+  - Pre-existing protocol pattern bug (cycle-3): quoted-string pattern `'intentBeat'` returns False; module is correctly wired when checked without quotes.
+
+- **Browser-required acceptance: 9 manual steps pending human pass.**
+  - [ ] Feel-test step 1: Fresh tab, clear localStorage — picker shows four slots symmetrically centred, no padlocks or badges.
+  - [ ] Feel-test step 2: Press N4 with no prior completion — routing falls back to N1.
+  - [ ] Feel-test step 3: Complete N1->N2->N3 — N4 slot becomes selectable.
+  - [ ] Feel-test step 4: Press N4 — title card reads exactly "Last quarter.  The bay holds what was given." (two spaces), holds 3000 ms, fades.
+  - [ ] Feel-test step 5: Cursor shows last-quarter half-disc glyph (leading hemisphere shadowed, pull-radius ring 95 px).
+  - [ ] Feel-test step 6: Press-and-hold — water responds; bay empty; night never completes (correct for sub-cycle A).
+  - [ ] Feel-test step 7: Refresh — `localStorage['neap/save/v3']` present, `version: 3`, `completedNights` includes 1, 2, 3 (not 4).
+  - [ ] Feel-test step 8: v2->v3 migration — inject stub v2 blob via DevTools, reload, confirm v3 written and v2 left in place.
+  - [ ] Feel-test step 9: Reduce-motion ON — picker, cursor, title-card, water-pull behaviours unchanged from existing nights.
+
+- **QA_RESULT: PASSED_WITH_NOTES** *(automatable gate clear; 9 browser feel-test steps pending human pass)*
