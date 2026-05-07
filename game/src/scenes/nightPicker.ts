@@ -111,10 +111,13 @@ function collectGhostsByNight(
     out.set(night, list);
   }
   for (const g of meta.persistedGhosts) {
-    if (out.has(g.night)) continue;
-    out.set(g.night, []);
-    const list = out.get(g.night);
-    if (list !== undefined) list.push({ type: g.type, x: g.x, y: g.y });
+    if (meta.sessionGhosts.has(g.night)) continue;
+    let list = out.get(g.night);
+    if (list === undefined) {
+      list = [];
+      out.set(g.night, list);
+    }
+    list.push({ type: g.type, x: g.x, y: g.y });
   }
   return out;
 }
