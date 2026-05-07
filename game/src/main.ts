@@ -320,6 +320,7 @@ function enterNight(night: NightNumber): void {
     pendingFadeToSilence = null;
   }
   if (audio.started) audio.restoreMaster(MASTER_RESTORE_RAMP_S);
+  cursorTether.setEnabled(true);
   postCompleteMs = 0;
   wasGoalComplete = false;
   wasSoftDriftActive = false;

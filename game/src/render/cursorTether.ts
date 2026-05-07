@@ -1,5 +1,4 @@
 import { Container, Graphics } from 'pixi.js';
-import { prefersReducedMotion } from '../a11y/reduceMotion.ts';
 import type { ReceiverInstance } from '../state/gameState.ts';
 
 const TETHER_COLOUR = 0xa8b5cc;
@@ -34,11 +33,6 @@ export function createCursorTether(): CursorTether {
     strand.clear();
     if (!enabled) return;
     if (opts.holdT === 0 || opts.receivers.length === 0) return;
-    // reduce-motion swap: static line at the same alpha computation, no fade-in
-    // tween. The tether is redrawn per-frame anyway, so both paths are identical
-    // geometry; prefersReducedMotion() is sampled live to react to mid-session
-    // OS toggles without needing a listener.
-    prefersReducedMotion();
     for (const receiver of opts.receivers) {
       if (receiver.sent) continue;
       const dx = opts.cursorX - receiver.position.x;
