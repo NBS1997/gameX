@@ -1,14 +1,15 @@
 import { Application, Container } from 'pixi.js';
-import {
-  onReduceMotionChange,
-  prefersReducedMotion,
-} from './a11y/reduceMotion.ts';
+import { prefersReducedMotion } from './a11y/reduceMotion.ts';
 import { createAudioManager } from './audio/manager.ts';
 import {
   BAY_COLOUR,
   LETTERBOX_COLOUR,
   LOGICAL_HEIGHT,
   LOGICAL_WIDTH,
+  MASTER_RESTORE_RAMP_S,
+  N3_FADE_TO_SILENCE_DELAY_MS,
+  N3_FADE_TO_SILENCE_DURATION_S,
+  N3_FINAL_BELL_DELAY_MS,
   RECEIVER_DIRECT_PULL,
   RECEIVER_PULL_RADIUS_MULTIPLIER,
 } from './config.ts';
@@ -17,7 +18,7 @@ import { loadLevel } from './level/loader.ts';
 import type { NightNumber } from './level/types.ts';
 import { createAmbientLife } from './render/ambientLife.ts';
 import { makeCursorForPhase, type MoonCursor } from './render/cursor.ts';
-import { createCursorTrail } from './render/cursorTrail.ts';
+import { createCursorTether } from './render/cursorTether.ts';
 import { createEntityRenderer } from './render/entities.ts';
 import { renderGhosts } from './render/ghosts.ts';
 import { createHarbourRenderer } from './render/harbour.ts';
@@ -95,18 +96,13 @@ const ambientLife = createAmbientLife();
 worldLayer.addChild(ambientLife.container);
 
 let activeScene: ActiveScene = { kind: 'none' };
-const cursorTrail = createCursorTrail();
-uiLayer.addChild(cursorTrail.container);
+const cursorTether = createCursorTether();
+uiLayer.addChild(cursorTether.container);
 let cursor: MoonCursor = makeCursorForPhase('waxing-crescent');
 uiLayer.addChild(cursor.container);
 
 const titleCard = createTitleCard();
 uiLayer.addChild(titleCard.container);
-
-cursorTrail.setEnabled(!prefersReducedMotion());
-onReduceMotionChange((reduced) => {
-  cursorTrail.setEnabled(!reduced);
-});
 
 const pointer = createPointerState(app.stage, app.screen);
 const audio = createAudioManager();
@@ -177,8 +173,9 @@ app.ticker.add((ticker) => {
   titleCard.update(dt);
   moonrise.update(dt, worldLayer, moonriseCursorAlpha);
   intentBeat.update(dt);
-  cursorTrail.push(pointer.x, pointer.y);
   ambientLife.update(dt);
+
+  const holdT = Math.min(1, pointer.holdMs / HOLD_RAMP_MS);
 
   if (activeScene.kind === 'night') {
     const scene = activeScene;
@@ -225,6 +222,14 @@ app.ticker.add((ticker) => {
     scene.harbour.update(dt, scene.state);
     updateSoftDrift(scene.state, worldLayer, dt);
 
+    cursorTether.update({
+      cursorX: pointer.x,
+      cursorY: pointer.y,
+      receivers: scene.state.receivers,
+      range: scene.state.level.night.pullRadius * RECEIVER_PULL_RADIUS_MULTIPLIER,
+      holdT,
+    });
+
     const goalNowComplete = isGoalComplete(scene.state);
     if (goalNowComplete && !wasGoalComplete) {
       audio.goalMet();
@@ -233,11 +238,11 @@ app.ticker.add((ticker) => {
         pendingFinalBell = setTimeout(() => {
           audio.finalBell();
           pendingFinalBell = null;
-        }, 1500);
+        }, N3_FINAL_BELL_DELAY_MS);
         pendingFadeToSilence = setTimeout(() => {
-          audio.fadeToSilence(4);
+          audio.fadeToSilence(N3_FADE_TO_SILENCE_DURATION_S);
           pendingFadeToSilence = null;
-        }, 3500);
+        }, N3_FADE_TO_SILENCE_DELAY_MS);
       }
     }
     if (goalNowComplete) {
@@ -262,11 +267,11 @@ app.ticker.add((ticker) => {
     wasGoalComplete = goalNowComplete;
     wasSoftDriftActive = scene.state.softDrift.active;
   } else {
+    cursorTether.setEnabled(false);
     grid.step(dt);
     water.update(dt);
   }
 
-  const holdT = Math.min(1, pointer.holdMs / HOLD_RAMP_MS);
   cursor.setHoldStrength(pointer.holding ? holdT : 0);
 
   const driftAlpha =
@@ -314,7 +319,7 @@ function enterNight(night: NightNumber): void {
     clearTimeout(pendingFadeToSilence);
     pendingFadeToSilence = null;
   }
-  if (audio.started) audio.restoreMaster(0.4);
+  if (audio.started) audio.restoreMaster(MASTER_RESTORE_RAMP_S);
   postCompleteMs = 0;
   wasGoalComplete = false;
   wasSoftDriftActive = false;
@@ -369,7 +374,7 @@ function showPicker(): void {
     clearTimeout(pendingFadeToSilence);
     pendingFadeToSilence = null;
   }
-  if (audio.started) audio.restoreMaster(0.4);
+  if (audio.started) audio.restoreMaster(MASTER_RESTORE_RAMP_S);
   picker.setMeta(meta);
   picker.setVisible(true);
   worldLayer.scale.set(1);

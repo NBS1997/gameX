@@ -913,3 +913,35 @@ Picking up the deferred-polish backlog from the discoverability pass:
 
 - **REVIEW_RESULT: APPROVED_WITH_NOTES**
 - **PR_NUMBER: N/A — direct commit 982d008 on main**
+
+## Closure-sprint cycle 6 — cursor-tether (P1 #8) + N3 timing literals to config.ts
+
+### Closure-sprint cycle 6 Dev — cursor-tether + N3 timing literals
+
+- **Built:**
+  - `game/src/render/cursorTether.ts` (new, ~55 LoC): per-frame gradient strand from cursor to each in-range, non-sent receiver. Alpha formula `0.3 * holdT * (1 - dist/range)` per spec §2.1. Colour `0xa8b5cc` (foam stop, motion-and-colour bible). Stroke width 2px. Pixi 8 `moveTo/lineTo/stroke({ width, color, alpha })` called once per receiver so each strand gets its own alpha. Reduce-motion: static line at identical alpha computation — no fade-in tween; `prefersReducedMotion()` sampled live per-frame via the existing function (no listener needed given per-frame redraw). `setEnabled(false)` clears the strand and gates `update`. Public interface: `{ container, update(opts), setEnabled(enabled) }`.
+  - `game/src/render/cursorTrail.ts`: deleted entirely. `rg cursorTrail` returns zero hits in `game/src/`.
+  - `game/src/main.ts`: replaced trail import/instantiation/mount/update with tether equivalents. Removed `onReduceMotionChange` import (no longer used). `holdT` computation moved above the `activeScene.kind === 'night'` branch so it is available for both the tether call and `cursor.setHoldStrength`. Tether updated inside the night branch after `scene.entities.update(dt)` and before goal-complete check — receivers are fresh. `cursorTether.setEnabled(false)` called in the else branch (picker/none) so the strand clears on scene transitions. N3 closure-beat timeouts now use named constants (`N3_FINAL_BELL_DELAY_MS`, `N3_FADE_TO_SILENCE_DELAY_MS`, `N3_FADE_TO_SILENCE_DURATION_S`). `audio.restoreMaster` calls (×2, in `enterNight` and `showPicker`) now use `MASTER_RESTORE_RAMP_S`.
+  - `game/src/config.ts`: added four named constants in a new "N3 closure-beat scheduling" section: `N3_FINAL_BELL_DELAY_MS = 1500`, `N3_FADE_TO_SILENCE_DELAY_MS = 3500`, `N3_FADE_TO_SILENCE_DURATION_S = 4`, `MASTER_RESTORE_RAMP_S = 0.4`.
+
+- **Files touched:** `game/src/render/cursorTether.ts` (new), `game/src/render/cursorTrail.ts` (deleted), `game/src/main.ts`, `game/src/config.ts`, `docs/specs/build-log.md`.
+
+- **Verification:**
+  - `npx tsc --noEmit` — exit 0.
+  - `npm run lint` — exit 0.
+  - Cycle-6 static checks (all 7): `cursorTether.ts` exists ✓, `cursorTether` in `main.ts` ✓, `cursorTrail.ts` absent ✓, `cursorTrail` absent in `main.ts` ✓, `N3_FINAL_BELL` in `config.ts` ✓, `N3_FADE_TO_SILENCE` in `config.ts` ✓, `MASTER_RESTORE_RAMP` in `config.ts` ✓.
+  - Cycles 1-5 regressions: `OQ18` in `main.ts` ✓, `intentBeat.ts` exists ✓, `SAVOUR_MIN_MS` in `main.ts` ✓, `prefersReducedMotion` in `moonrise.ts` ✓, `finalBell`/`fadeToSilence`/`restoreMaster` in `audio/manager.ts` ✓, `finalBell` in `main.ts` ✓.
+
+- **P3 cuts taken:** none.
+
+- **Out of scope:**
+  - P1 #6 — headland fire (cluster A; deferred to next cycle).
+  - P1 #11 — Steam draft (deferred).
+  - P1 #9 — trailer (user step; deferred).
+  - P1 #10 — stranger-test (user step; deferred).
+
+- **Watch-outs:**
+  - (a) Tether's per-receiver stroke loop iterates over `state.receivers` each frame — N2 has 8 lanterns, N3 has 6. In-range filter and `receiver.sent` guard limit actual draw calls. Verify perf is acceptable in browser feel-test before shipping.
+  - (b) Sent lanterns on N3 must NOT receive a tether strand — the `!receiver.sent` guard is in place in `cursorTether.ts`. Verify in browser feel-test that tether disappears per-lantern as each is sent.
+
+- **Commit:** `feat(cursor-tether): replace cursorTrail with cursorTether + extract N3 timing literals to config.ts — captain cycle 6, P1 #8 + cycle-5 cosmetic fix`
