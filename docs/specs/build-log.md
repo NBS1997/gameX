@@ -1085,3 +1085,117 @@ Picking up the deferred-polish backlog from the discoverability pass:
   - (c) `headlandFire.reset()` is called in `enterNight` before `setPosition` — clears cross-night state (phase, pulsePhase, igniteElapsedMs) so N3 re-entry always starts with an idle disc.
 
 - **Commit:** `feat(headland-fire): N3 visual closure beat — captain cycle 7, P1 #6`
+
+
+### Closure-sprint cycle 7 QA -- N3 headland fire
+
+- **Automatable acceptance:** 5/5 cycle-7 static checks passed; 8/8 cycles 1-6 regressions in correct states
+- **Browser-required acceptance:** 9 manual feel-test steps pending human pass (see below)
+- **Ethics-perimeter sweep:** clean
+- **tsc --noEmit:** exit 0
+- **npm run lint:** exit 0
+
+#### Static checks -- cycle 7 (all True)
+
+| Check | Result |
+|---|---|
+| Test-Path src/render/headlandFire.ts | True |
+| Select-String manager.ts lanternIgnitesFire | True |
+| Select-String main.ts headlandFire | True |
+| Select-String night-3.delta.json fire | True |
+| Select-String types.ts AmbientDef | True |
+
+#### Regression checks -- cycles 1-6 (all in correct states)
+
+| Check | Expected | Result |
+|---|---|---|
+| moonrise.ts imports prefersReducedMotion | True | True |
+| SAVOUR_MIN_MS in main.ts | True | True |
+| intentBeat.ts exists | True | True |
+| intentBeat wired in main.ts | True | True |
+| OQ18 marker in main.ts | True | True |
+| finalBell in manager.ts | True | True |
+| fadeToSilence in manager.ts | True | True |
+| restoreMaster in manager.ts | True | True |
+| finalBell in main.ts | True | True |
+| cursorTether.ts exists | True | True |
+| cursorTether in main.ts | True | True |
+| cursorTrail.ts exists | False | False |
+| cursorTrail in main.ts | False | False (confirmed via ripgrep; PS false-positive discarded) |
+| N3_FINAL_BELL in config.ts | True | True |
+| N3_FADE_TO_SILENCE in config.ts | True | True |
+| MASTER_RESTORE_RAMP in config.ts | True | True |
+
+#### headlandFire.ts code-inspection (all pass)
+
+- Interface: { container, setPosition, reset, setIgnited, update, isIgnited } -- exact match.
+- State machine: idle | igniting | ignited; setIgnited() early-returns if phase is already igniting or ignited -- idempotent.
+- Idle pulse: IDLE_BASE_ALPHA + IDLE_PULSE_DEPTH * Math.sin(pulsePhase * 2 * Math.PI * IDLE_PULSE_HZ) with IDLE_PULSE_HZ=1.2, IDLE_PULSE_DEPTH=0.15 -- exact match.
+- Ignition tween: 200ms (IGNITION_TWEEN_MS=200), ease-out cubic 1 - Math.pow(1 - t, 3) -- exact match.
+- Reduce-motion: idle draws static disc at IDLE_BASE_ALPHA (no pulse); igniting snaps directly to ignited in same frame (no tween) -- exact match.
+- Colours: FIRE_FILL=0xff8a4a, FIRE_HALO_FILL=0xffd966 -- exact match to motion-and-colour bible beach-fire palette.
+- reset() clears phase to idle, zeros pulsePhase and igniteElapsedMs, redraws at base alpha -- exact match.
+
+#### verbs/settle.ts code-inspection (all pass)
+
+- fire? parameter typed as { position: Vec2; isIgnited: () => boolean; onIgnite: () => void } -- getter form, not snapshot bool.
+- Proximity uses BOTH r.position.x > 1600 AND fdist < FIRE_PROXIMITY_RADIUS (=80) -- both predicates present.
+- Check executes once per lantern per frame; !fire.isIgnited() getter prevents double-fire even if two lanterns cross simultaneously in the same frame.
+- No audio or render imports -- settle.ts is pure verb-side.
+
+#### main.ts wiring code-inspection (all pass)
+
+- Layer order: water.sprite -> ghostLayer -> intentBeat.container -> headlandFire.container -> ambientLife.container (global mounts). headlandFire sits above intent/water/ghosts, below per-night entities -- correct.
+- fireIgnitedThisNight = false declared at module scope alongside other top-level state flags (line 129).
+- enterNight resets fireIgnitedThisNight = false AND calls headlandFire.reset() before setPosition -- cross-night state cleared on every re-entry.
+- enterNight sets headlandFire.container.visible = (firePos !== undefined && night === 3) and calls headlandFire.setPosition only when N3 and firePos present.
+- headlandFire.update(dt) gated on scene.state.currentNight === 3 -- N1/N2 get no update cycles and container.visible is false (belt-and-braces).
+- case send block: isIgnited: () => fireIgnitedThisNight is a live getter. onIgnite callback guards if (fireIgnitedThisNight) return before flipping flag, then calls headlandFire.setIgnited() and audio.lanternIgnitesFire().
+
+#### audio/manager.ts code-inspection (all pass)
+
+- lanternIgnitesFire(): sine 1080Hz (= 880 + 200 transposition from N1 goal-met bell).
+- Envelope: setValueAtTime(0, now) -> linearRampToValueAtTime(0.14, now+0.04) -> exponentialRampToValueAtTime(0.001, now+0.6) -> osc.stop(now+0.7) -- exact match.
+- Connects through masterGain. Guard if (!ctx || !masterGain) return present.
+- All existing methods (goalMet, finalBell, fadeToSilence, restoreMaster, softDriftSigh, duckBed, unduckBed, pressAttack, releaseWhoosh, setPhase, start) unchanged.
+
+#### level/types.ts code-inspection (pass)
+
+- AmbientDef { fire?: Vec2 } present.
+- NightDelta.ambient?: AmbientDef is optional.
+
+#### night-3.delta.json code-inspection (pass)
+
+- ambient.fire.x = 1700, ambient.fire.y = 980 -- exact match to spec.
+- Other fields (lunarPhase, pullStrength, pullRadius, spawns, goal) unchanged.
+
+#### Ethics-perimeter sweep (all clean)
+
+- Analytics imports (sentry/posthog/plausible/mixpanel/gtag/googletagmanager): none.
+- localStorage.setItem: one call only in state/save.ts writing key neap/save/v2 -- permitted key.
+- fetch(): none.
+- Forbidden UI strings (share/wishlist/follow): none.
+- package.json runtime deps: pixi.js only -- clean.
+
+#### Architecture note: double-ignition guard
+
+Two independent ignition guards are present:
+1. settle.ts: !fire.isIgnited() (getter) before calling onIgnite() -- prevents re-fire within the same frame loop iteration.
+2. main.ts onIgnite callback: explicit if (fireIgnitedThisNight) return before flipping flag.
+
+Belt-and-braces. The back-and-forth case (cross, drift back, cross again) is fully covered -- once fireIgnitedThisNight is true, the getter returns true and the settle.ts check suppresses all subsequent crossings from any lantern.
+
+#### Browser checks required (human pass)
+
+- [ ] Idle pulse: disc at ~(1700, 980) pulses gently at ~1.2Hz with low amplitude on N3 entry. Empirical: feels faint, not distracting.
+- [ ] First-ignition tween: first lantern crossing triggers ~200ms scale-up tween then sustain. Empirical: feels like arrival, not glitch.
+- [ ] Chime audible: 1080Hz chime audible alongside ambient bed without competing; shorter/lower than goal-met bell.
+- [ ] Idempotent ignition: subsequent lanterns crossing do not re-fire chime or tween.
+- [ ] Fire persists: ignited state holds for rest of N3 (no decay back to idle).
+- [ ] Fire not a goal target: goal-met requires >=4 lanterns past east edge; fire ignition alone does not satisfy it.
+- [ ] Back-and-forth case: lantern crosses, drifts back, crosses again -- only ONE ignition fires total.
+- [ ] Other nights: N1 and N2 show no headland fire disc.
+- [ ] Reduce-motion: Windows animation off -> idle disc static (no pulse); ignition snaps instantly; chime still fires.
+
+- **QA_RESULT: PASSED_WITH_NOTES** *(automatable gate clear; browser feel-test is the remaining gate)*
+- **PR_NUMBER: N/A -- direct commit 083bccb on main**
