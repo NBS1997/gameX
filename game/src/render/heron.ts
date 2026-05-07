@@ -38,7 +38,7 @@ export interface Heron {
       goalComplete: boolean;
     },
   ): void;
-  triggerRecoil(): void;
+  triggerRecoil(cursorPos: Vec2): void;
   isLifting(): boolean;
 }
 
@@ -76,12 +76,12 @@ export function createHeron(): Heron {
     container.position.set(basePosition.x, basePosition.y);
   };
 
-  const triggerRecoil = (): void => {
+  const triggerRecoil = (cursorPos: Vec2): void => {
     if (phase !== 'idle' && phase !== 'approaching') return;
     if (elapsedTotalMs < recoilCooldownUntil) return;
     if (prefersReducedMotion()) return;
-    const cursorAwayDx = container.position.x - basePosition.x;
-    const cursorAwayDy = container.position.y - basePosition.y;
+    const cursorAwayDx = container.position.x - cursorPos.x;
+    const cursorAwayDy = container.position.y - cursorPos.y;
     const len = Math.sqrt(cursorAwayDx * cursorAwayDx + cursorAwayDy * cursorAwayDy) || 1;
     recoilStartPos = { x: container.position.x, y: container.position.y };
     recoilEndPos = {

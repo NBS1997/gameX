@@ -247,7 +247,7 @@ app.ticker.add((ticker) => {
               cursorPosition: { x: pointer.x, y: pointer.y },
               cursorVelocity,
               isPressed: pointer.holding,
-              onShy: () => heron.triggerRecoil(),
+              onShy: () => heron.triggerRecoil({ x: pointer.x, y: pointer.y }),
               onGoalMet: () => {
                 if (heronGoalMetThisNight) return;
                 heronGoalMetThisNight = true;
@@ -420,8 +420,7 @@ function enterNight(night: NightNumber): void {
   }
 
   if (night === 4) {
-    // Cycle-11 UX refinement #1: fade tether over 250ms; cursorTether has no fadeOut method,
-    // so using setEnabled(false) directly — deferred smooth fade noted as sub-cycle C polish.
+    // 250ms fade deferred to sub-cycle C — cursorTether has no fadeOut method yet.
     cursorTether.setEnabled(false);
   } else {
     cursorTether.setEnabled(true);
