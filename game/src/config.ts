@@ -81,10 +81,7 @@ export const WATER_PALETTES: Record<
 // Backwards-compat: default palette used until setPhase swaps it.
 export const WATER_PALETTE: readonly RGB[] = WATER_PALETTES['waxing-crescent'];
 
-// N3 closure-beat scheduling (cycle 5 P1 #7).
-// finalBell fires at goal-met + N3_FINAL_BELL_DELAY_MS;
-// fadeToSilence starts at goal-met + N3_FADE_TO_SILENCE_DELAY_MS over N3_FADE_TO_SILENCE_DURATION_S.
-// MASTER_RESTORE_RAMP_S ramps gain back when re-entering a night after a fade.
+// N3 closure-beat timings (cycle 5 P1 #7); MASTER_RESTORE_RAMP_S restores after a fade.
 export const N3_FINAL_BELL_DELAY_MS = 1500;
 export const N3_FADE_TO_SILENCE_DELAY_MS = 3500;
 export const N3_FADE_TO_SILENCE_DURATION_S = 4;

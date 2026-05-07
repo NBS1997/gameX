@@ -1228,3 +1228,29 @@ Belt-and-braces. The back-and-forth case (cross, drift back, cross again) is ful
 
 - **REVIEW_RESULT: APPROVED_WITH_NOTES**
 - **PR_NUMBER: N/A — direct commits `083bccb` (P1 #6 ship) + `d5a4681` (QA build-log entry) on main; comment trim follows in the doc-update commit.**
+
+## Closure-sprint cycle 9 — picker-as-place (P1 #2 visual half) + config.ts comment trim
+
+### Cycle 9 — 2026-05-06
+
+- **Built:**
+  - P1 #2 visual half — `game/src/scenes/nightPicker.ts` extended to render per-night ghost silhouettes on each picker slot. Each slot now carries a `ghostContainer: Container` child added before the moon glyph (z-order: ghosts behind glyph, moon glyph is primary read). `setMeta(meta)` calls `collectGhostsByNight(meta)` then for each slot clears and redraws silhouettes: boats as stroked ellipses (rx=7.17, ry=3.07), lanterns as stroked circles (r=3.24), both in `0xa8b5cc` at alpha 0.35. World coordinates are scaled by `PICKER_GHOST_SCALE = 0.18` relative to the slot centre. Session ghosts take priority over persisted ghosts (session wins for the live tab); sent N3 lanterns are excluded from both paths, consistent with `state/meta.ts` lines 60–67.
+  - `config.ts` comment trim (reviewer cycle-5 carryover) — the 4-line block at lines 84–87 compressed to one line per conventions §131: `// N3 closure-beat timings (cycle 5 P1 #7); MASTER_RESTORE_RAMP_S restores after a fade.`
+- **Files touched:** `game/src/scenes/nightPicker.ts`, `game/src/config.ts`.
+- **Verification:**
+  1. `npx tsc --noEmit` — exit 0.
+  2. `npm run lint` — exit 0.
+  3. `Select-String -Path src/scenes/nightPicker.ts -Pattern 'PICKER_GHOST' -Quiet` — True.
+  4. Cycles 1-7 regressions — all True (OQ18 in main.ts; intentBeat.ts exists; SAVOUR_MIN_MS in main.ts; prefersReducedMotion in moonrise.ts; finalBell/fadeToSilence/restoreMaster in audio/manager.ts; cursorTether.ts exists; cursorTrail.ts does NOT exist; N3_FINAL_BELL/N3_FADE_TO_SILENCE/MASTER_RESTORE_RAMP in config.ts; headlandFire.ts exists; lanternIgnitesFire in audio/manager.ts).
+  5. Conventions §131 spot-check: config.ts comment at line 84 is now one line.
+- **P3 cuts taken:** None.
+- **Out of scope:**
+  - **P1 #9 trailer** — USER STEP; not automated.
+  - **P1 #10 stranger-test** — USER STEP; not automated.
+  - **WCAG re-audit** — P2 #15, day-9-shaped; orchestrator describes only, not dispatched this cycle.
+- **Watch-outs:**
+  - (a) Sent N3 lanterns are filtered out of the picker silhouettes (session path: `r.sent` skip; persisted path: `recordNightComplete` already excludes sent receivers at write time). Both paths are consistent.
+  - (b) `ghostContainer` is added BEFORE the glyph in slot setup so the z-order keeps the moon as the primary read on each slot.
+  - (c) Reduce-motion path needs no special handling — silhouettes are static `Graphics` objects with no animation; they are inert under any OS setting by construction.
+  - (d) The ethics perimeter constraint (no counters/badges/tooltips on the picker) is enforced by absence — no `text`, `pointerover`/`pointerout` listeners, or numeric tallies are added to `ghostContainer` or its children.
+- **Commit:** `feat(picker-place): P1 #2 visual half — ghosts as silhouettes at picker; trim config.ts comment — captain cycle 9`
