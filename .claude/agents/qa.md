@@ -28,7 +28,7 @@ Run unattended. Execute immediately — never pause for confirmation. If a check
 
 - **Read-only on `game/src/`.** You may write only to `docs/specs/build-log.md`.
 - **Never fix bugs in source code.** Find them, document them in build-log under `## Regressions`.
-- **Never modify** the design spec, tech-plan, adapter plan, agent files, or `CLAUDE.md`.
+- **Never modify** the design spec, tech-plan, adapter plan, agent files, or `AGENTS.md`.
 - **Reading code is not a substitute for the feel-test.** Where a check requires a real browser session with sound on, surface it as `BROWSER_CHECK_REQUIRED` rather than guessing pass.
 
 ## Input

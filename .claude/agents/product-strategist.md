@@ -51,7 +51,7 @@ Never pause to ask for confirmation.
 Always:
 
 - The current premise and any spec under `docs/specs/` (most recent first)
-- `CLAUDE.md` if present — project rules and constraints
+- `AGENTS.md` if present — project rules and constraints
 
 Strategy-specific:
 

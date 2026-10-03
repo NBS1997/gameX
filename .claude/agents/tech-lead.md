@@ -62,7 +62,7 @@ Always:
 - The most recent design spec under `docs/specs/` (look for files matching
   `*-design.md`)
 - Any prior premise file at `docs/specs/*-premise.md`
-- `CLAUDE.md` if present
+- `AGENTS.md` if present
 - The current state of the codebase if any code exists yet
 
 Tech-lead-specific:

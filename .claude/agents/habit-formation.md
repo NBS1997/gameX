@@ -89,7 +89,7 @@ flag it explicitly and explain why the genre justifies it (or pull the rec).
 Always:
 
 - The current premise and any spec under `docs/specs/` (most recent first)
-- `CLAUDE.md` if present — project rules and constraints
+- `AGENTS.md` if present — project rules and constraints
 
 Habit-formation-specific (only if a codebase exists yet):
 

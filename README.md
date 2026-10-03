@@ -39,7 +39,7 @@ See [`docs/HOW-TO-PLAY.md`](docs/HOW-TO-PLAY.md) for the full guide.
   - `build-log.md` — the per-day record of what shipped, what was cut, and what was deferred.
   - `forward-log.md` — the Phase-4 ralph-loop working log (created on first `/captain` cycle).
 - [`.claude/agents/`](.claude/agents/) — the multi-agent design and build team.
-- [`CLAUDE.md`](CLAUDE.md) — the team and workflow reference.
+- [`AGENTS.md`](AGENTS.md) — the team and workflow reference.
 
 ## Stack
 

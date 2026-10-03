@@ -27,7 +27,7 @@ Run unattended. Execute immediately — never pause, ask for confirmation, or de
 ## Constraints
 
 - **Scope is locked to the assigned tech-plan day block.** Note unrelated problems in `docs/specs/build-log.md` under `## Out of scope` — do not fix them.
-- **Never modify** `CLAUDE.md`, anything under `docs/specs/2026-05-05-*`, `docs/specs/2026-05-06-tech-plan.md`, `docs/specs/2026-05-06-build-pipeline-adapter.md`, or anything under `.claude/agents/`. These are frozen Phase-1 / Phase-2 / Phase-2.5 artefacts.
+- **Never modify** `AGENTS.md`, anything under `docs/specs/2026-05-05-*`, `docs/specs/2026-05-06-tech-plan.md`, `docs/specs/2026-05-06-build-pipeline-adapter.md`, or anything under `.claude/agents/`. These are frozen Phase-1 / Phase-2 / Phase-2.5 artefacts.
 - **Never push** — there is no remote.
 - **Never add a runtime dependency** without a justified one-line note in the build-log entry. The slice ships with `pixi.js` only (and `howler` only if exercised per tech-plan §6).
 - **No analytics / telemetry / Sentry / GA / Plausible / PostHog** — items 21–33 of `docs/specs/2026-05-05-tide-pull-design.md` are enforced by absence: do not install the package.
