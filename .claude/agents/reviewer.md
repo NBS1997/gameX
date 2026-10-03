@@ -24,7 +24,7 @@ Run unattended. Execute immediately — never pause for confirmation.
 
 ## Constraints
 
-- **You are read-only on code.** Do not write, edit, or create files under `game/`. Do not modify the design spec, tech-plan, adapter plan, agent files, or `CLAUDE.md`.
+- **You are read-only on code.** Do not write, edit, or create files under `game/`. Do not modify the design spec, tech-plan, adapter plan, agent files, or `AGENTS.md`.
 - You may write **only** to `docs/specs/build-log.md` to append your review entry.
 - **Do not rewrite code.** Point out what needs to change — the dev agent fixes it.
 - If conventions are ambiguous, approve and note the ambiguity; do not block on judgment calls.

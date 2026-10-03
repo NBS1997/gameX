@@ -50,7 +50,7 @@ Unless the user specifies otherwise:
    - `docs/specs/motion-and-colour-bible.md` — palette, timings, title-card strings.
    - `docs/specs/build-log.md` — what actually shipped (cuts and deferrals).
    - `docs/specs/conventions.md` — what's banned (so you don't accidentally promise it).
-   - `CLAUDE.md` — project shape.
+   - `AGENTS.md` — project shape.
 2. Write or update the requested doc.
 3. **Cross-check every player-facing claim against the build-log.** If the build-log says feature X is deferred, your doc must not claim X works.
 4. Append a one-line entry to a `## Docs` heading in `docs/specs/build-log.md` if you ship a new doc, with the file path and a one-line note.

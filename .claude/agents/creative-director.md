@@ -55,7 +55,7 @@ set in the format specified. Never pause to ask for confirmation.
 
 - `docs/specs/` if the directory exists (in case there are prior premises
   the user has rejected — read them so you don't repeat them)
-- `CLAUDE.md` if present
+- `AGENTS.md` if present
 - Any prior `creative-director` memos in `docs/specs/`
 
 ## What to do
